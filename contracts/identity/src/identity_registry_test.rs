@@ -51,7 +51,7 @@ fn test_add_and_verify_identity() {
     
     assert!(!client.verify(&user));
     
-    client.add(&admin, &user, &hash);
+    client.add(&admin, &user, &hash, &1);
     
     assert!(client.verify(&user));
 }
@@ -72,7 +72,7 @@ fn test_remove_identity() {
     hash_data[1] = 2;
     let hash = BytesN::from_array(&env, &hash_data);
     
-    client.add(&admin, &user, &hash);
+    client.add(&admin, &user, &hash, &1);
     assert!(client.verify(&user));
     
     client.remove(&admin, &user);
@@ -98,7 +98,7 @@ fn test_unauthorized_add_identity() {
     let hash = BytesN::from_array(&env, &hash_data);
     
     // Only the real admin can add, should panic
-    client.add(&fake_admin, &user, &hash);
+    client.add(&fake_admin, &user, &hash, &1);
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn test_unauthorized_remove_identity() {
     hash_data[0] = 5;
     let hash = BytesN::from_array(&env, &hash_data);
     
-    client.add(&admin, &user, &hash);
+    client.add(&admin, &user, &hash, &1);
     
     // Fake admin attempts to remove, should panic
     client.remove(&fake_admin, &user);
@@ -141,5 +141,5 @@ fn test_invalid_hash_should_panic() {
     let zero_hash = BytesN::from_array(&env, &[0u8; 32]);
     
     // Should panic
-    client.add(&admin, &user, &zero_hash);
+    client.add(&admin, &user, &zero_hash, &1);
 }
