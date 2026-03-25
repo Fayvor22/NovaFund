@@ -220,3 +220,33 @@ enum EmailStatus {
   SENT
   FAILED
 }
+
+model BridgeTransaction {
+  id              String       @id @default(cuid())
+  sourceTxHash    String       @unique @map("source_tx_hash")
+  destTxHash      String?      @map("dest_tx_hash")
+  sourceChain     String       @map("source_chain")
+  destChain       String       @map("dest_chain")
+  status          BridgeStatus @default(INITIATED)
+  statusMessage   String?      @map("status_message")
+  amount          String?
+  asset           String?
+  senderAddress   String?      @map("sender_address")
+  receiverAddress String?      @map("receiver_address")
+  lastCheckedAt   DateTime?    @map("last_checked_at")
+  arrivedAt       DateTime?    @map("arrived_at")
+  failedAt        DateTime?    @map("failed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([sourceTxHash])
+  @@map("bridge_transactions")
+}
+
+enum BridgeStatus {
+  INITIATED
+  BRIDGING
+  ARRIVED
+  FAILED
+}

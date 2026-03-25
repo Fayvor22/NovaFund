@@ -8,6 +8,7 @@ import { ReputationModule } from './reputation/reputation.module';
 import { DatabaseModule } from './database.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { NotificationModule } from './notification/notification.module';
+import { BridgeModule } from './bridge/bridge.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationModule } from './notification/notification.module';
     DatabaseModule,
     IndexerModule,
     NotificationModule,
+    BridgeModule,
   ],
   controllers: [AppController, UserController],
   providers: [AppService],
