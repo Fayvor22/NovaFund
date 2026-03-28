@@ -7,6 +7,7 @@ import { EventHandlerService } from './services/event-handler.service';
 import { DlqService } from './services/dlq.service';
 import { DatabaseModule } from '../database.module';
 import { StellarModule } from '../stellar/stellar.module';
+import { EscrowAuditTask } from './tasks/escrow-audit.task';
 import stellarConfig, { indexerConfig } from '../config/stellar.config';
 
 /**
@@ -36,6 +37,8 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     EventHandlerService,
     // Dead Letter Queue
     DlqService,
+    // Daily scheduled audit task
+    EscrowAuditTask,
   ],
   exports: [
     // Export services for potential external use
