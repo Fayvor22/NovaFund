@@ -18,6 +18,7 @@ import { RedisModule } from './redis/redis.module';
 import { ProjectModule } from './project/project.module';
 import { StellarModule } from './stellar/stellar.module';
 import { OracleModule } from './oracle/oracle.module';
+import { GraphQLRateLimitModule } from './graphql/graphql-rate-limit.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { OracleModule } from './oracle/oracle.module';
       autoSchemaFile: true,
       playground: true,
     }),
+    GraphQLRateLimitModule,
     ReputationModule,
     DatabaseModule,
     IndexerModule,
