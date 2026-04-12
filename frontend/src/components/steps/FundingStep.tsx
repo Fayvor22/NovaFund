@@ -13,20 +13,20 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Funding Details</h2>
-        <p className="mt-2 text-muted-foreground">
+        <h2 className="text-3xl font-semibold text-white">Funding Details</h2>
+        <p className="mt-2 text-white/60 text-base">
           Set your funding goal and timeline. These help backers understand your project&apos;s scope.
         </p>
       </div>
 
       {/* Funding Goal */}
       <div>
-        <label htmlFor="fundingGoal" className="block text-sm font-medium text-foreground mb-2">
-          Funding Goal (USD) <span className="text-red-500">*</span>
+        <label htmlFor="fundingGoal" className="block text-sm font-medium text-white/90 mb-2">
+          Funding Goal (USD) <span className="text-red-400">*</span>
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
+            <DollarSign className="h-5 w-5 text-white/40" />
           </div>
           <input
             type="number"
@@ -36,29 +36,29 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
             placeholder="10000"
             min="0"
             step="100"
-            className={`w-full pl-11 pr-4 py-3 bg-background border rounded-md focus:outline-none focus:ring-2 transition-all text-foreground placeholder:text-muted-foreground ${
+            className={`w-full pl-11 pr-4 py-3 bg-white/5 border rounded-xl focus:outline-none focus:ring-2 transition-all text-white placeholder:text-white/30 ${
               errors.fundingGoal 
-                ? 'border-red-500 focus:ring-red-400 focus:border-red-500' 
-                : 'border-border focus:ring-ring focus:border-ring'
+                ? 'border-red-500/50 focus:ring-red-500/20 focus:border-red-500/50 bg-red-500/5' 
+                : 'border-white/10 focus:ring-primary/20 focus:border-primary/50 hover:border-white/20 hover:bg-white/10'
             }`}
           />
         </div>
         {errors.fundingGoal && (
           <p className="text-sm text-red-500 mt-1">{errors.fundingGoal}</p>
         )}
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-white/40 mt-1">
           How much funding do you need to complete your project?
         </p>
       </div>
 
       {/* Duration */}
       <div>
-        <label htmlFor="duration" className="block text-sm font-medium text-foreground mb-2">
-          Campaign Duration (days) <span className="text-red-500">*</span>
+        <label htmlFor="duration" className="block text-sm font-medium text-white/90 mb-2">
+          Campaign Duration (days) <span className="text-red-400">*</span>
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
+            <Calendar className="h-5 w-5 text-white/40" />
           </div>
           <input
             type="number"
@@ -68,10 +68,10 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
             placeholder="30"
             min="1"
             max="365"
-            className={`w-full pl-11 pr-4 py-3 bg-background border rounded-md focus:outline-none focus:ring-2 transition-all text-foreground placeholder:text-muted-foreground ${
+            className={`w-full pl-11 pr-4 py-3 bg-white/5 border rounded-xl focus:outline-none focus:ring-2 transition-all text-white placeholder:text-white/30 ${
               errors.duration 
-                ? 'border-red-500 focus:ring-red-400 focus:border-red-500' 
-                : 'border-border focus:ring-ring focus:border-ring'
+                ? 'border-red-500/50 focus:ring-red-500/20 focus:border-red-500/50 bg-red-500/5' 
+                : 'border-white/10 focus:ring-primary/20 focus:border-primary/50 hover:border-white/20 hover:bg-white/10'
             }`}
           />
         </div>
@@ -84,10 +84,10 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
               key={days}
               type="button"
               onClick={() => onChange('duration', days)}
-              className={`px-4 py-2 text-sm rounded-md transition-all font-medium border ${
+              className={`px-4 py-2 text-sm rounded-lg transition-all font-medium border ${
                 data.duration === days
-                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-background text-foreground border-border hover:bg-accent'
+                  ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]'
+                  : 'bg-white/5 text-white border-white/10 hover:bg-white/10 hover:border-white/20'
               }`}
             >
               {days} days
@@ -98,12 +98,12 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
 
       {/* Stellar Wallet Address */}
       <div>
-        <label htmlFor="walletAddress" className="block text-sm font-medium text-foreground mb-2">
-          Stellar Wallet Address <span className="text-red-500">*</span>
+        <label htmlFor="walletAddress" className="block text-sm font-medium text-white/90 mb-2">
+          Stellar Wallet Address <span className="text-red-400">*</span>
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Wallet className="h-5 w-5 text-muted-foreground" />
+            <Wallet className="h-5 w-5 text-white/40" />
           </div>
           <input
             type="text"
@@ -111,23 +111,23 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
             value={data.walletAddress}
             onChange={(e) => onChange('walletAddress', e.target.value)}
             placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-            className={`w-full pl-11 pr-4 py-3 bg-background border rounded-md focus:outline-none focus:ring-2 transition-all font-mono text-sm text-foreground placeholder:text-muted-foreground ${
+            className={`w-full pl-11 pr-4 py-3 bg-white/5 border rounded-xl focus:outline-none focus:ring-2 transition-all font-mono text-sm text-white placeholder:text-white/30 ${
               errors.walletAddress 
-                ? 'border-red-500 focus:ring-red-400 focus:border-red-500' 
-                : 'border-border focus:ring-ring focus:border-ring'
+                ? 'border-red-500/50 focus:ring-red-500/20 focus:border-red-500/50 bg-red-500/5' 
+                : 'border-white/10 focus:ring-primary/20 focus:border-primary/50 hover:border-white/20 hover:bg-white/10'
             }`}
           />
         </div>
         {errors.walletAddress && (
           <p className="text-sm text-red-500 mt-1">{errors.walletAddress}</p>
         )}
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-white/40 mt-1">
           Your Stellar public address where funds will be received. Must start with &apos;G&apos;.
         </p>
       </div>
 
       {/* Info Box */}
-      <div className="bg-accent/50 border-l-4 border-primary rounded-md p-4">
+      <div className="bg-primary/5 border-l-4 border-primary rounded-r-xl p-4">
         <div className="flex gap-3">
           <div className="flex-shrink-0">
             <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -135,8 +135,8 @@ export default function FundingStep({ data, errors, onChange }: FundingStepProps
             </svg>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-foreground">All-or-nothing funding</h4>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h4 className="text-sm font-medium text-white/90">All-or-nothing funding</h4>
+            <p className="text-sm text-white/60 mt-1">
               Funds are only released if you reach your goal within the specified duration. 
               This protects backers and ensures you have enough to deliver.
             </p>

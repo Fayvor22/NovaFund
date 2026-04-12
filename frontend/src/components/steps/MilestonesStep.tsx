@@ -43,21 +43,21 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Project Milestones</h2>
-        <p className="mt-2 text-muted-foreground">
+        <h2 className="text-3xl font-semibold text-white">Project Milestones</h2>
+        <p className="mt-2 text-white/60 text-base">
           Break your project into key milestones. This builds trust and shows backers your roadmap.
         </p>
       </div>
 
       {/* Progress indicator */}
-      <div className="bg-accent/50 border border-border rounded-md p-4">
+      <div className="bg-primary/5 border border-white/10 rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-foreground">Total Allocation</span>
-          <span className={`text-lg font-bold ${totalPercentage === 100 ? 'text-green-600' : totalPercentage > 100 ? 'text-red-500' : 'text-foreground'}`}>
+          <span className="text-sm font-medium text-white/90">Total Allocation</span>
+          <span className={`text-lg font-bold ${totalPercentage === 100 ? 'text-green-400' : totalPercentage > 100 ? 'text-red-400' : 'text-white'}`}>
             {totalPercentage}%
           </span>
         </div>
-        <div className="w-full bg-background rounded-full h-3 border border-border shadow-inner">
+        <div className="w-full bg-white/5 rounded-full h-3 border border-white/10 shadow-inner">
           <div 
             className={`h-full rounded-full transition-all ${
               totalPercentage === 100 ? 'bg-green-600' : 
@@ -68,7 +68,7 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
           />
         </div>
         {remainingPercentage !== 0 && (
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-white/60 mt-2">
             {remainingPercentage > 0 ? `${remainingPercentage}% remaining` : `Over by ${Math.abs(remainingPercentage)}%`}
           </p>
         )}
@@ -84,25 +84,25 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
       {/* Milestones List */}
       <div className="space-y-4">
         {data.milestones.length === 0 ? (
-          <div className="text-center py-12 bg-accent/30 rounded-md border-2 border-dashed border-border">
-            <svg className="w-12 h-12 mx-auto text-muted-foreground mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-center py-12 bg-white/5 rounded-xl border-2 border-dashed border-white/20">
+            <svg className="w-12 h-12 mx-auto text-white/40 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p className="text-foreground font-medium">No milestones yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first milestone to get started</p>
+            <p className="text-white/90 font-medium">No milestones yet</p>
+            <p className="text-sm text-white/60 mt-1">Add your first milestone to get started</p>
           </div>
         ) : (
           data.milestones.map((milestone, index) => (
             <div 
               key={milestone.id}
-              className="bg-card border border-border rounded-md p-4 hover:shadow-md transition-all"
+              className="bg-white/5 border border-white/10 rounded-xl p-4 hover:shadow-lg transition-all"
             >
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-sm shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-primary text-black font-bold flex items-center justify-center text-sm shadow-[0_0_15px_rgba(var(--primary),0.3)]">
                     {index + 1}
                   </div>
-                  <h4 className="font-medium text-foreground">Milestone {index + 1}</h4>
+                  <h4 className="font-medium text-white/90">Milestone {index + 1}</h4>
                 </div>
                 <button
                   type="button"
@@ -117,16 +117,16 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
               <div className="space-y-3">
                 {/* Title */}
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Title <span className="text-red-500">*</span>
+                  <label className="block text-xs font-medium text-white/90 mb-1">
+                    Title <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={milestone.title}
                     onChange={(e) => updateMilestone(milestone.id, 'title', e.target.value)}
                     placeholder="e.g., Prototype Development"
-                    className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 transition-all text-sm text-foreground placeholder:text-muted-foreground ${
-                      errors[`milestone_${index}_title`] ? 'border-red-500 focus:ring-red-400 focus:border-red-500' : 'border-border focus:ring-ring focus:border-ring'
+                    className={`w-full px-3 py-2 bg-white/5 border rounded-lg focus:outline-none focus:ring-2 transition-all text-sm text-white placeholder:text-white/30 ${
+                      errors[`milestone_${index}_title`] ? 'border-red-500/50 focus:ring-red-500/20 focus:border-red-500/50 bg-red-500/5' : 'border-white/10 focus:ring-primary/20 focus:border-primary/50'
                     }`}
                   />
                   {errors[`milestone_${index}_title`] && (
@@ -136,7 +136,7 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
 
                 {/* Description */}
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
+                  <label className="block text-xs font-medium text-white/90 mb-1">
                     Description
                   </label>
                   <textarea
@@ -144,15 +144,15 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
                     onChange={(e) => updateMilestone(milestone.id, 'description', e.target.value)}
                     placeholder="What will be accomplished in this milestone?"
                     rows={2}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:border-ring text-sm resize-none text-foreground placeholder:text-muted-foreground"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 hover:border-white/20 hover:bg-white/10 text-sm resize-none text-white placeholder:text-white/30"
                   />
                 </div>
 
                 {/* Percentage and Date */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
-                      Funding % <span className="text-red-500">*</span>
+                    <label className="block text-xs font-medium text-white/90 mb-1">
+                      Funding % <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="number"
@@ -161,8 +161,8 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
                       placeholder="25"
                       min="0"
                       max="100"
-                      className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 transition-all text-sm text-foreground placeholder:text-muted-foreground ${
-                        errors[`milestone_${index}_percentage`] ? 'border-red-500 focus:ring-red-400 focus:border-red-500' : 'border-border focus:ring-ring focus:border-ring'
+                      className={`w-full px-3 py-2 bg-white/5 border rounded-lg focus:outline-none focus:ring-2 transition-all text-sm text-white placeholder:text-white/30 ${
+                        errors[`milestone_${index}_percentage`] ? 'border-red-500/50 focus:ring-red-500/20 bg-red-500/5' : 'border-white/10 focus:ring-primary/20 focus:border-primary/50'
                       }`}
                     />
                     {errors[`milestone_${index}_percentage`] && (
@@ -170,14 +170,14 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label className="block text-xs font-medium text-white/90 mb-1">
                       Estimated Date
                     </label>
                     <input
                       type="date"
                       value={milestone.estimatedDate}
                       onChange={(e) => updateMilestone(milestone.id, 'estimatedDate', e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:border-ring text-sm text-foreground"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 text-sm text-white/90 color-scheme-dark"
                     />
                   </div>
                 </div>
@@ -191,14 +191,14 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
       <button
         type="button"
         onClick={addMilestone}
-        className="w-full py-3 border-2 border-dashed border-border text-foreground rounded-md hover:bg-accent hover:border-ring transition-all flex items-center justify-center gap-2 font-medium"
+        className="w-full py-3 border-2 border-dashed border-white/20 text-white rounded-xl hover:bg-white/5 hover:border-white/40 transition-all flex items-center justify-center gap-2 font-medium"
       >
         <Plus className="w-5 h-5" />
         Add Milestone
       </button>
 
       {/* Helper Info */}
-      <div className="bg-accent/50 border border-border rounded-md p-4">
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
         <div className="flex gap-3">
           <div className="flex-shrink-0">
             <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -206,8 +206,8 @@ export default function MilestonesStep({ data, errors, onChange }: MilestonesSte
             </svg>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-foreground">Milestone Tips</h4>
-            <ul className="text-sm text-muted-foreground mt-1 space-y-1 list-disc list-inside">
+            <h4 className="text-sm font-medium text-white/90">Milestone Tips</h4>
+            <ul className="text-sm text-white/50 mt-1 space-y-1 list-disc list-inside">
               <li>Funding percentages must total exactly 100%</li>
               <li>Break complex projects into 3-5 manageable milestones</li>
               <li>Clear milestones increase backer confidence</li>

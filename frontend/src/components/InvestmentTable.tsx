@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 
@@ -74,17 +73,16 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
   };
 
   return (
-    <Card className="overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-700">
-        <h2 className="text-xl font-semibold">Your Investments</h2>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="overflow-hidden w-full">
+      <div className="px-6 py-4 border-b border-white/10">
+        <h2 className="text-xl font-semibold text-white">Your Investments</h2>
+        <p className="text-sm text-white/50 mt-1">
           Manage your portfolio and claim available returns
         </p>
       </div>
 
-      {/* Mobile Card View */}
       <div className="md:hidden">
-        <div className="divide-y divide-gray-700">
+        <div className="divide-y divide-white/10">
           {investments.map((investment) => {
             const gainLoss = calculateGainLoss(
               investment.currentValue,
@@ -99,7 +97,7 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
                     <div className="font-medium text-white">
                       {investment.projectName}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-white/50">
                       Invested {formatDate(investment.dateInvested)}
                     </div>
                   </div>
@@ -108,22 +106,22 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
                 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <div className="text-muted-foreground">Invested</div>
-                    <div className="font-medium">${investment.amount.toLocaleString()}</div>
+                    <div className="text-white/50">Invested</div>
+                    <div className="font-medium text-white">${investment.amount.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Current Value</div>
-                    <div className="font-medium">${investment.currentValue.toLocaleString()}</div>
+                    <div className="text-white/50">Current Value</div>
+                    <div className="font-medium text-white">${investment.currentValue.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Gain/Loss</div>
+                    <div className="text-white/50">Gain/Loss</div>
                     <div className={gainLoss.isPositive ? "text-green-400" : "text-red-400"}>
                       {gainLoss.isPositive ? "+" : ""}${gainLoss.amount.toLocaleString()}
                       <div className="text-xs">({gainLoss.isPositive ? "+" : ""}{gainLoss.percentage}%)</div>
                     </div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Claimable</div>
+                    <div className="text-white/50">Claimable</div>
                     <div className="text-purple-400 font-medium">
                       ${investment.claimableReturns.toLocaleString()}
                     </div>
@@ -172,35 +170,34 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
         </div>
       </div>
 
-      {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-800/50">
+          <thead className="bg-white/5">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+               <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Project
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Invested
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Current Value
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Gain/Loss
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Claimable
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
+          <tbody className="divide-y divide-white/10">
             {investments.map((investment) => {
               const gainLoss = calculateGainLoss(
                 investment.currentValue,
@@ -211,14 +208,14 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
               return (
                 <tr
                   key={investment.id}
-                  className="hover:bg-gray-800/30 transition-colors"
+                  className="hover:bg-white/5 transition-colors text-white"
                 >
                   <td className="px-6 py-4">
                     <div>
                       <div className="font-medium text-white">
                         {investment.projectName}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-white/50">
                         Invested {formatDate(investment.dateInvested)}
                       </div>
                     </div>
@@ -288,7 +285,7 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
                         )}
                       </Button>
                     ) : (
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-white/50">
                         {investment.claimableReturns === 0
                           ? "No returns"
                           : "Not ready"}
@@ -302,10 +299,9 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
         </table>
       </div>
 
-      {/* Summary Footer */}
-      <div className="px-6 py-4 bg-gray-800/30 border-t border-gray-700">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">
+      <div className="px-6 py-4 bg-white/5 border-t border-white/10">
+        <div className="flex justify-between items-center text-sm text-white">
+          <span className="text-white/60">
             Total Investments: {investments.length}
           </span>
           <div className="flex space-x-6">
@@ -330,7 +326,7 @@ const InvestmentTable: React.FC<InvestmentTableProps> = ({
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 

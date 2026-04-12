@@ -236,14 +236,20 @@ export default function CreateProjectWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+    <div className="relative min-h-screen bg-[#050505] text-white overflow-hidden pb-12">
+      {/* Subtle background glows */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-primary/20 opacity-40 blur-[120px]" />
+      <div className="pointer-events-none absolute left-0 bottom-1/4 h-[500px] w-[500px] -translate-x-1/4 rounded-[100%] bg-purple-600/10 opacity-30 blur-[100px]" />
+
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+      <header className="relative z-20 border-b border-white/5 bg-zinc-950/40 backdrop-blur-xl shadow-sm sticky top-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Create Project</h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-blue-400 to-purple-500 bg-clip-text text-transparent">
+                Create Project
+              </h1>
+              <p className="text-sm text-white/50 mt-1 font-medium tracking-wide transition-colors">
                 Step {currentStep + 1} of {STEPS.length}
               </p>
             </div>
@@ -263,7 +269,7 @@ export default function CreateProjectWizard() {
       </header>
 
       {/* Progress Bar */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-white/10 backdrop-blur-sm">
+      <div className="relative z-10 border-b border-white/5 bg-zinc-950/20 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between relative">
             {STEPS.map((step, index) => (
@@ -274,14 +280,14 @@ export default function CreateProjectWizard() {
                     type="button"
                     onClick={() => visitedSteps.has(index) && goToStep(index)}
                     disabled={!visitedSteps.has(index)}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 transform ${
+                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 transform border shadow-lg ${
                       currentStep === index
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white ring-4 ring-purple-500/30 shadow-lg shadow-purple-500/30 scale-110'
+                        ? 'bg-zinc-900 border-primary text-primary ring-4 ring-primary/20 scale-110 shadow-primary/20'
                         : isStepComplete(index)
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md shadow-green-500/20'
+                        ? 'bg-primary/20 border-primary/50 text-white shadow-primary/10'
                         : visitedSteps.has(index)
-                        ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white hover:from-slate-500 hover:to-slate-600 cursor-pointer'
-                        : 'bg-slate-800 text-slate-500'
+                        ? 'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 cursor-pointer'
+                        : 'bg-zinc-900 border-white/5 text-zinc-600'
                     } ${!visitedSteps.has(index) ? 'cursor-not-allowed' : ''}`}
                   >
                     {isStepComplete(index) && currentStep !== index ? (
@@ -302,8 +308,8 @@ export default function CreateProjectWizard() {
                 </div>
                 {/* Connector Line */}
                 {index < STEPS.length - 1 && (
-                  <div className={`absolute left-1/2 top-6 h-1 w-full -translate-x-1/2 -z-10 ${
-                    isStepComplete(index) ? 'bg-gradient-to-r from-green-500/50 to-green-500/20' : 'bg-gradient-to-r from-slate-700 to-slate-800'
+                  <div className={`absolute left-1/2 top-6 h-1 w-full -translate-x-1/2 -z-10 transition-colors duration-500 ${
+                    isStepComplete(index) ? 'bg-primary/50' : 'bg-white/5'
                   }`} />
                 )}
               </div>
@@ -313,11 +319,12 @@ export default function CreateProjectWizard() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Form Area */}
           <div className="lg:col-span-2">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6 sm:p-8 bg-gradient-to-br from-slate-800/30 to-slate-900/50">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/60 p-6 sm:p-10 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <div className="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               {renderStep()}
 
               {/* Navigation Buttons */}
@@ -336,7 +343,7 @@ export default function CreateProjectWizard() {
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-500 hover:to-indigo-500 transition-all font-medium shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 px-8 py-3 rounded-full border border-primary bg-primary text-black transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(var(--primary),0.5)] font-medium"
                   >
                     Next
                     <ChevronRight className="w-4 h-4" />
@@ -346,7 +353,7 @@ export default function CreateProjectWizard() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-primary to-purple-500 text-white transition-all hover:opacity-90 hover:shadow-[0_0_20px_rgba(var(--primary),0.5)] disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     {isSubmitting ? (
                       <>

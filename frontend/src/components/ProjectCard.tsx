@@ -72,7 +72,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ y: -5 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition-colors hover:border-white/20 hover:bg-white/10 cursor-pointer"
+        className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-zinc-800/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:shadow-primary/10 cursor-pointer"
       >
         {/* Project Image Placeholder with Category Gradient */}
         <div
@@ -131,7 +131,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                  className="h-full bg-primary"
+                  className="h-full bg-gradient-to-r from-primary to-purple-500"
                 />
               </div>
             </div>

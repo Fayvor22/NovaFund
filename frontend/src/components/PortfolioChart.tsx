@@ -1,5 +1,4 @@
 import React from "react";
-import Card from "@/components/ui/Card";
 
 interface Investment {
   id: string;
@@ -36,26 +35,26 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ investments }) => {
   ];
 
   return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Portfolio Allocation</h3>
+    <div className="w-full">
+      <h3 className="text-xl font-semibold mb-6 text-white">Portfolio Allocation</h3>
 
       {/* Simple Bar Chart */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {chartData.map((item, index) => (
-          <div key={item.id} className="flex items-center">
-            <div className="w-24 text-sm text-muted-foreground truncate">
+          <div key={item.id} className="flex items-center group cursor-pointer p-2 hover:bg-white/5 rounded-lg transition-colors -mx-2">
+            <div className="w-24 text-sm text-white/50 truncate group-hover:text-white transition-colors">
               {item.projectName}
             </div>
             <div className="flex-1 mx-3">
-              <div className="bg-gray-300 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+              <div className="bg-white/5 rounded-full h-3 overflow-hidden border border-white/5">
                 <div
-                  className={`h-full ${colors[index % colors.length]} transition-all duration-500`}
+                  className={`h-full ${colors[index % colors.length]} transition-all duration-500 shadow-sm`}
                   style={{ width: `${item.percentage}%` }}
                 />
               </div>
             </div>
-            <div className="w-16 text-sm text-right">{item.percentage}%</div>
-            <div className="w-20 text-sm text-right text-muted-foreground">
+            <div className="w-16 text-sm text-right text-white font-medium">{item.percentage}%</div>
+            <div className="w-20 text-sm text-right text-white/40">
               ${item.currentValue.toLocaleString()}
             </div>
           </div>
@@ -63,8 +62,8 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ investments }) => {
       </div>
 
       {/* Legend */}
-      <div className="mt-6 pt-4 border-t border-gray-700">
-        <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="mt-8 pt-6 border-t border-white/10">
+        <div className="grid grid-cols-2 gap-3 text-xs text-white/60">
           {chartData.slice(0, 6).map((item, index) => (
             <div key={item.id} className="flex items-center">
               <div
@@ -75,7 +74,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ investments }) => {
           ))}
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 

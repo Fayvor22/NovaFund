@@ -1,5 +1,4 @@
 import React from "react";
-import Card from "@/components/ui/Card";
 
 interface PortfolioData {
   totalInvested: number;
@@ -53,12 +52,13 @@ const PortfolioStats: React.FC<PortfolioStatsProps> = ({ data }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((stat, index) => (
-        <Card key={index} className={`${stat.bgColor} border border-gray-700`}>
-          <div className="flex items-center justify-between">
+        <div key={index} className={`relative overflow-hidden rounded-2xl p-6 ${stat.bgColor} border border-white/10 backdrop-blur-xl shadow-lg`}>
+          <div className="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          <div className="flex items-center justify-between relative z-10">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-white/60 mb-1">{stat.title}</p>
+              <p className={`text-3xl font-extrabold ${stat.color} drop-shadow-sm`}>{stat.value}</p>
+              <p className="text-xs text-white/40 mt-1">
                 {stat.description}
               </p>
             </div>
@@ -127,7 +127,7 @@ const PortfolioStats: React.FC<PortfolioStatsProps> = ({ data }) => {
               )}
             </div>
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   );
