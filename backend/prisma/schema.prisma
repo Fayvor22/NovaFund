@@ -312,3 +312,45 @@ model TokenPrice {
   @@index([symbol, fetchedAt])
   @@map("token_prices")
 }
+
+model InvestmentIntent {
+  id                      String                   @id @default(cuid())
+  projectId               String                   @map("project_id")
+  investorId              String                   @map("investor_id")
+  investmentAmount        BigInt                   @map("investment_amount")
+  userAssetCode           String                   @map("user_asset_code")
+  userAssetIssuer         String?                  @map("user_asset_issuer")
+  projectAssetCode        String                   @map("project_asset_code")
+  projectAssetIssuer      String                   @map("project_asset_issuer")
+  
+  // Proposed swap route details
+  bestRouteHopCount       Int                      @default(0) @map("best_route_hop_count")
+  bestRouteFeePercentage  Decimal                  @default(0) @db.Decimal(10, 6) @map("best_route_fee_percentage")
+  bestRouteConversionRate Decimal                  @default(1) @db.Decimal(20, 8) @map("best_route_conversion_rate")
+  routeJson               Json                     @map("route_json")
+  
+  // Status tracking
+  status                  InvestmentIntentStatus   @default(PENDING)
+  expiresAt               DateTime                 @map("expires_at")
+  executedAt              DateTime?                @map("executed_at")
+  rejectionReason         String?                  @map("rejection_reason")
+  
+  // Audit
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([investorId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("investment_intents")
+}
+
+enum InvestmentIntentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  EXECUTED
+  FAILED
+}
