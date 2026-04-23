@@ -50,6 +50,7 @@ model Project {
   ipfsHash     String?       @map("ipfs_hash")
   status       ProjectStatus @default(ACTIVE)
   tokenAddress String?       @map("token_address")
+  restrictedRegions String[] @default([]) @map("restricted_regions")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
