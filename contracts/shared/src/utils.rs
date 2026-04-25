@@ -1,6 +1,6 @@
 use soroban_sdk::Env;
 
-use crate::math::{checked_bps, checked_muldiv};
+use crate::math::checked_bps;
 use crate::types::{Amount, BasisPoints};
 
 /// Calculate percentage of an amount using basis points.

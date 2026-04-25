@@ -2,7 +2,7 @@
 mod tests {
     use crate::{TreasuryContract, TreasuryContractClient};
     use soroban_sdk::{
-        testutils::{Address as _, Ledger},
+        testutils::{Address as _},
         token::StellarAssetClient,
         Address, Bytes, Env, Vec,
     };
@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn test_add_token() {
         let env = Env::default();
-        let (client, admin, _, _) = setup(&env);
+        let (client, _admin, _, _) = setup(&env);
         let new_issuer = Address::generate(&env);
         let new_id = env.register_stellar_asset_contract_v2(new_issuer.clone());
         let new_token = new_id.address();

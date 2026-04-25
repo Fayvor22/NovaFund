@@ -132,7 +132,7 @@ impl TreasuryContract {
         storage.set(&DataKey::SupportedTokens, &tokens);
 
         env.events()
-            .publish((symbol_short!("tr_tok_add"),), (token,));
+            .publish((symbol_short!("tr_tok_ad"),), (token,));
         Ok(())
     }
 
