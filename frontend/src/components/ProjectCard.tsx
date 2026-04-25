@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 import { LikeButton } from "@/components/social/LikeButton";
 import { ShareButton } from "@/components/social/ShareButton";
 import { SocialStats } from "@/components/social/SocialStats";
+import { subscribeToFundingUpdates } from "@/lib/funding-stream-client";
 import Image from "next/image";
 
 const BLUR_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mOMjY39zwAEhQJnxZ6A3QAAAABJRU5ErkJggg==";
-
 
 export interface Project {
   id: string;
@@ -32,8 +32,70 @@ interface ProjectCardProps {
   project: Project;
 }
 
+interface FundingState {
+  raised: number;
+  backers: number;
+}
+
+function getNonNegativeNumber(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function getBackerCount(value: number): number {
+  return Math.trunc(getNonNegativeNumber(value));
+}
+
+function createFundingState(raised: number, backers: number): FundingState {
+  return {
+    raised: getNonNegativeNumber(raised),
+    backers: getBackerCount(backers),
+  };
+}
+
+function getProgressPercentage(raised: number, goal: number): number {
+  if (!Number.isFinite(goal) || goal <= 0) return 0;
+
+  const progress = (raised / goal) * 100;
+  return Math.min(Math.max(progress, 0), 100);
+}
+
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
-  const progress = Math.min((project.raised / project.goal) * 100, 100);
+  const projectId = project.id;
+  const goal = getNonNegativeNumber(project.goal);
+  const initialRaised = project.raised;
+  const initialBackers = project.backers;
+  const [fundingState, setFundingState] = React.useState<FundingState>(() =>
+    createFundingState(initialRaised, initialBackers)
+  );
+
+  React.useEffect(() => {
+    setFundingState(createFundingState(initialRaised, initialBackers));
+  }, [projectId, initialRaised, initialBackers]);
+
+  React.useEffect(() => {
+    return subscribeToFundingUpdates((update) => {
+      if (update.projectId !== projectId) return;
+
+      setFundingState((current) => {
+        const nextRaised = getNonNegativeNumber(
+          update.raised ?? current.raised + (update.amount ?? 0)
+        );
+        const nextBackers =
+          update.backers !== undefined ? getBackerCount(update.backers) : current.backers;
+
+        if (nextRaised === current.raised && nextBackers === current.backers) {
+          return current;
+        }
+
+        return {
+          raised: nextRaised,
+          backers: nextBackers,
+        };
+      });
+    });
+  }, [projectId]);
+
+  const progress = getProgressPercentage(fundingState.raised, goal);
 
   const categoryStyles = {
     Tech: {
@@ -70,7 +132,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
   const IconComponent = style.icon;
 
   return (
-    <Link href={`/project/${project.id}`} className="block">
+    <Link href={`/project/${projectId}`} className="block">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -78,7 +140,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-zinc-800/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:shadow-primary/10 cursor-pointer"
       >
-        {/* Project Image Placeholder with Category Gradient */}
         <div
           className={cn(
             "relative aspect-video w-full overflow-hidden bg-gradient-to-br transition-transform duration-500 group-hover:scale-105 flex items-center justify-center",
@@ -96,7 +157,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           )}
-          {/* Animated Icon Background */}
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
@@ -105,10 +165,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
             <IconComponent className="h-32 w-32 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </motion.div>
 
-          {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-950/20 to-transparent z-10" />
 
-          {/* Category Badge */}
           <div className="absolute right-4 top-4 z-10">
             <span
               className={cn(
@@ -131,31 +189,29 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
           </p>
 
           <div className="mt-8 space-y-4">
-            {/* Progress Bar Container */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-white">
-                  ${project.raised.toLocaleString()}
+                  ${fundingState.raised.toLocaleString()}
                 </span>
                 <span className="text-white/40">
-                  {Math.round(progress)}% of ${project.goal.toLocaleString()}
+                  {Math.round(progress)}% of ${goal.toLocaleString()}
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                   className="h-full bg-gradient-to-r from-primary to-purple-500"
                 />
               </div>
             </div>
 
-            {/* Stats */}
             <div className="flex items-center justify-between border-t border-white/5 pt-4 text-sm text-white/40">
               <div className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <span>{project.backers} backers</span>
+                <span>{fundingState.backers} backers</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
@@ -163,13 +219,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
               </div>
             </div>
 
-            {/* Social Features */}
             <div className="flex items-center justify-between border-t border-white/5 pt-3">
-              <SocialStats projectId={project.id} compact />
+              <SocialStats projectId={projectId} compact />
               <div className="flex items-center gap-2">
-                <LikeButton projectId={project.id} compact />
+                <LikeButton projectId={projectId} compact />
                 <ShareButton
-                  projectId={project.id}
+                  projectId={projectId}
                   projectTitle={project.title}
                   compact
                 />
