@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { ProjectCard, type Project } from "@/components/ProjectCard";
+import { ProjectSkeleton } from "@/components/skeletons/ProjectSkeleton";
 import { Search, ChevronDown, Filter } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -178,6 +179,14 @@ export default function ExplorePage() {
     return result;
   }, [debouncedSearch, sortBy, selectedCategories, fundingStage, maxDaysLeft, minSuccessProb]);
 
+  // Simulate loading state for demo purposes
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
   // Debounce the search input to reduce recomputations
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -323,36 +332,42 @@ export default function ExplorePage() {
           </div>
         </motion.div>
 
-        {/* Project Grid */}
-        <div className="mb-20">
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-white">
-              {filteredAndSortedProjects.length} <span className="text-zinc-500 font-normal">Projects available</span>
-            </h2>
-          </div>
+         {/* Project Grid */}
+         <div className="mb-20">
+           <div className="mb-8 flex items-center justify-between">
+             <h2 className="text-2xl font-semibold text-white">
+               {filteredAndSortedProjects.length} <span className="text-zinc-500 font-normal">Projects available</span>
+             </h2>
+           </div>
 
-          {filteredAndSortedProjects.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <AnimatePresence mode="popLayout">
-                {filteredAndSortedProjects.map((project, idx) => (
-                  <motion.div
-                    key={project.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    transition={{ duration: 0.4, delay: idx * 0.05, type: 'spring' }}
-                  >
-                    <ProjectCard project={project} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} 
-              className="flex flex-col items-center justify-center py-32 text-center rounded-3xl border border-white/5 bg-white/[0.01]"
-            >
+           {isLoading ? (
+             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+               {[...Array(8)].map((_, idx) => (
+                 <ProjectSkeleton key={idx} />
+               ))}
+             </div>
+           ) : filteredAndSortedProjects.length > 0 ? (
+             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+               <AnimatePresence mode="popLayout">
+                 {filteredAndSortedProjects.map((project, idx) => (
+                   <motion.div
+                     key={project.id}
+                     layout
+                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                     transition={{ duration: 0.4, delay: idx * 0.05, type: 'spring' }}
+                   >
+                     <ProjectCard project={project} />
+                   </motion.div>
+                 ))}
+               </AnimatePresence>
+             </div>
+           ) : (
+             <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} 
+               className="flex flex-col items-center justify-center py-32 text-center rounded-3xl border border-white/5 bg-white/[0.01]"
+             >
               <div className="rounded-full border border-white/10 bg-zinc-900/50 p-6 mb-6 shadow-xl backdrop-blur-sm">
                 <Search className="h-10 w-10 text-zinc-500" />
               </div>
