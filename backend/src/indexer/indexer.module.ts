@@ -6,7 +6,7 @@ import { LedgerTrackerService } from './services/ledger-tracker.service';
 import { EventHandlerService } from './services/event-handler.service';
 import { DlqService } from './services/dlq.service';
 import { SorobanEventIndexerService } from './services/soroban-event-indexer.service';
-import { SorobanEventIndexerService } from './services/soroban-event-indexer.service';
+import { ParserService } from './services/parser.service';
 import { DatabaseModule } from '../database.module';
 import { StellarModule } from '../stellar/stellar.module';
 import { EscrowAuditTask } from './tasks/escrow-audit.task';
@@ -41,9 +41,8 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     EventHandlerService,
     // Dead Letter Queue
     DlqService,
-    // Soroban Event Indexer
-    SorobanEventIndexerService,
-    SorobanEventIndexerService,
+    // Background XDR Parsing
+    ParserService,
     // Daily scheduled audit task
     EscrowAuditTask,
   ],
@@ -54,6 +53,7 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     EventHandlerService,
     DlqService,
     SorobanEventIndexerService,
+    ParserService,
   ],
 })
 export class IndexerModule {}
