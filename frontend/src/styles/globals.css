@@ -69,6 +69,24 @@
     background: radial-gradient(ellipse at bottom, var(--tw-gradient-stops));
   }
 
+  /* Premium glassmorphism radial gradient background for dashboard */
+  .dashboard-gradient-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse 1000px 600px at 50% 0%,
+      hsl(217.2 91.2% 59.8% / 0.15),
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse 400px 400px at 100% 25%,
+      hsl(270 100% 50% / 0.08),
+      transparent 50%
+    );
+    pointer-events: none;
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -91,6 +109,13 @@
 
   .backdrop-blur-xl {
     backdrop-filter: blur(24px);
+  }
+
+  /* Browser compatibility fallback for backdrop-filter */
+  @supports not (backdrop-filter: blur(24px)) {
+    .backdrop-blur-xl {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
   }
 
   .shadow-\[0_25px_80px_rgba\(2\,6\,23\,0\.65\)\] {
