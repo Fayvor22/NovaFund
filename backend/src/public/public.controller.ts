@@ -4,10 +4,17 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProjectDto } from './dto/project.dto';
 import { StatsDto } from './dto/stats.dto';
+import { ProjectService } from '../project/project.service';
+import { PrismaService } from '../prisma.service';
 
 @ApiTags('Public API')
 @Controller('v1')
 export class PublicController {
+  constructor(
+    private readonly projectService: ProjectService,
+    private readonly prisma: PrismaService,
+  ) {}
+
   /**
    * GET /v1/projects
    */
@@ -15,16 +22,14 @@ export class PublicController {
   @ApiOperation({ summary: 'Get all public projects' })
   @ApiResponse({ status: 200, type: [ProjectDto] })
   async getProjects(): Promise<ProjectDto[]> {
-    // TODO: Replace with real service
-    return [
-      {
-        id: '1',
-        name: 'NovaFund Alpha',
-        description: 'Decentralized funding platform',
-        fundingGoal: 10000,
-        fundsRaised: 7500,
-      },
-    ];
+    const projects = await this.projectService.findActiveProjects(20);
+    return projects.map(project => ({
+      id: project.id,
+      name: project.title,
+      description: project.description,
+      fundingGoal: project.goal,
+      fundsRaised: project.currentFunds,
+    }));
   }
 
   /**
@@ -34,10 +39,25 @@ export class PublicController {
   @ApiOperation({ summary: 'Get platform statistics' })
   @ApiResponse({ status: 200, type: StatsDto })
   async getStats(): Promise<StatsDto> {
+    const [totalProjects, totalFundingResult, activeUsers] = await Promise.all([
+      this.prisma.project.count(),
+      this.prisma.project.aggregate({
+        _sum: { currentFunds: true },
+      }),
+      this.prisma.user.count({
+        where: {
+          OR: [
+            { contributions: { some: {} } },
+            { projects: { some: {} } },
+          ],
+        },
+      }),
+    ]);
+
     return {
-      totalProjects: 120,
-      totalFunding: 500000,
-      activeUsers: 3200,
+      totalProjects,
+      totalFunding: totalFundingResult._sum.currentFunds || 0,
+      activeUsers,
     };
   }
 }
