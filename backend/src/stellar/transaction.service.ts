@@ -26,11 +26,11 @@ export class TransactionService {
     return this.transactions.get(id) || null;
   }
 
-  updateTransaction(id: string, updates: Partial<TransactionRecord>) {
+  updateTransaction(id: string, updates: Partial<TransactionRecord>): TransactionRecord | null {
     const tx = this.transactions.get(id);
     if (!tx) return null;
 
-    const updated = {
+    const updated: TransactionRecord = {
       ...tx,
       ...updates,
       updatedAt: new Date(),
