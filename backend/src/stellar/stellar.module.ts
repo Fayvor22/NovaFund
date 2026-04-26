@@ -15,9 +15,16 @@ import { StellarInsightsResolver } from './stellar-insights.resolver';
 import { TransactionService } from './transaction.service';
 import { TransactionHandler } from './transaction-handler';
 import { SimulatorService } from './simulator.service';
+import { StellarService } from './stellar.service';
+import { ReservesService } from './reserves.service';
+import { OracleModule } from '../oracle/oracle.module';
 
 @Module({
-  imports: [HttpModule, ScheduleModule.forRoot()],
+  imports: [
+    HttpModule,
+    ScheduleModule.forRoot(),
+    OracleModule,
+  ],
   providers: [
     RpcFallbackService,
     PathfinderService,
@@ -29,6 +36,8 @@ import { SimulatorService } from './simulator.service';
     PrismaService,
     TransactionService,
     SimulatorService,
+    StellarService,
+    ReservesService,
   ],
   controllers: [
     RpcFallbackController,
@@ -45,6 +54,8 @@ import { SimulatorService } from './simulator.service';
     EcosystemSyncService,
     TransactionService,
     SimulatorService,
+    StellarService,
+    ReservesService,
   ],
 })
 export class StellarModule {}
