@@ -22,6 +22,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "test:load": "k6 run tests/load/load-test.js",
     "prepare": "cd .. && husky install backend/.husky"
   },
   "dependencies": {
