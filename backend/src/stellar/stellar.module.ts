@@ -16,6 +16,7 @@ import { TransactionService } from './transaction.service';
 import { TransactionHandler } from './transaction-handler';
 import { SimulatorService } from './simulator.service';
 import { StellarService } from './stellar.service';
+import { DynamicFeeService } from './dynamic-fee.service';
 import { ReservesService } from './reserves.service';
 import { OracleModule } from '../oracle/oracle.module';
 
@@ -37,6 +38,7 @@ import { OracleModule } from '../oracle/oracle.module';
     TransactionService,
     SimulatorService,
     StellarService,
+    DynamicFeeService,
     ReservesService,
   ],
   controllers: [
@@ -55,6 +57,7 @@ import { OracleModule } from '../oracle/oracle.module';
     TransactionService,
     SimulatorService,
     StellarService,
+    DynamicFeeService,
     ReservesService,
   ],
 })
