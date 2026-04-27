@@ -1,5 +1,4 @@
 import { SkeletonBase } from "./SkeletonBase";
-import { cn } from "@/lib/utils";
 
 export function ProjectSkeleton() {
   return (
