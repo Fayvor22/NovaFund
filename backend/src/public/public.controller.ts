@@ -1,11 +1,13 @@
 // public.controller.ts
-
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProjectDto } from './dto/project.dto';
 import { StatsDto } from './dto/stats.dto';
 import { ProjectService } from '../project/project.service';
 import { PrismaService } from '../prisma.service';
+import { CacheManagerService } from '../redis/cache-manager.service';
+
+const DEFAULT_PROJECT_LIMIT = 20;
 
 @ApiTags('Public API')
 @Controller('v1')
@@ -13,6 +15,7 @@ export class PublicController {
   constructor(
     private readonly projectService: ProjectService,
     private readonly prisma: PrismaService,
+    private readonly cacheManager: CacheManagerService,
   ) {}
 
   /**
@@ -22,7 +25,7 @@ export class PublicController {
   @ApiOperation({ summary: 'Get all public projects' })
   @ApiResponse({ status: 200, type: [ProjectDto] })
   async getProjects(): Promise<ProjectDto[]> {
-    const projects = await this.projectService.findActiveProjects(20);
+    const projects = await this.projectService.findActiveProjects(DEFAULT_PROJECT_LIMIT);
     return projects.map(project => ({
       id: project.id,
       name: project.title,
@@ -34,11 +37,18 @@ export class PublicController {
 
   /**
    * GET /v1/stats
+   * Returns global metrics with cache-first strategy and DB fallback.
    */
   @Get('stats')
   @ApiOperation({ summary: 'Get platform statistics' })
   @ApiResponse({ status: 200, type: StatsDto })
   async getStats(): Promise<StatsDto> {
+    const cached = await this.cacheManager.getGlobalStats();
+    if (cached) return cached;
+    return this.computeStatsFromDb();
+  }
+
+  private async computeStatsFromDb(): Promise<StatsDto> {
     const [totalProjects, totalFundingResult, activeUsers] = await Promise.all([
       this.prisma.project.count(),
       this.prisma.project.aggregate({
@@ -56,7 +66,7 @@ export class PublicController {
 
     return {
       totalProjects,
-      totalFunding: totalFundingResult._sum.currentFunds || 0,
+      totalFunding: totalFundingResult._sum.currentFunds ?? 0,
       activeUsers,
     };
   }
