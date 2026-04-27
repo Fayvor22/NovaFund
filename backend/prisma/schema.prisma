@@ -464,6 +464,17 @@ model OperationalCost {
   @@map("operational_costs")
 }
 
+model PlatformMetric {
+  id          String   @id @default(cuid())
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  summary     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([periodStart, periodEnd])
+  @@map("platform_metrics")
+}
+
 model OperationalCostEvent {
   id               String   @id @default(cuid())
   txHash           String?  @map("tx_hash")

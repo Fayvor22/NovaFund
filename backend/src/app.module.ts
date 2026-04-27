@@ -30,6 +30,7 @@ import { UserModule } from './user/user.module';
 import { ShortlinkModule } from './shortlink/shortlink.module';
 import { AdminModule } from './admin/admin.module';
 import { SupportModule } from './support/support.module';
+import { GovernanceModule } from './governance/governance.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { SupportModule } from './support/support.module';
     ShortlinkModule,
     SupportModule,
     AdminModule,
+    GovernanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
