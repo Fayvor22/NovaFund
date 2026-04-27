@@ -9,6 +9,39 @@ const INITIAL_RECONNECT_MS = 1000;
 const MAX_RECONNECT_MS = 30000;
 const MAX_RECENT_EVENT_IDS = 250;
 
+function parseAbsoluteUrl(url: string): string | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return new URL(url, window.location.origin).toString();
+  } catch {
+    return null;
+  }
+}
+
+function getFundingStreamUrl(): string | null {
+  const explicitStreamUrl = process.env.NEXT_PUBLIC_FUNDING_STREAM_URL?.trim();
+  if (explicitStreamUrl) {
+    return parseAbsoluteUrl(explicitStreamUrl);
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!apiUrl) return null;
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const baseUrl = new URL(apiUrl, window.location.origin);
+    const basePath = baseUrl.pathname.endsWith("/") ? baseUrl.pathname : `${baseUrl.pathname}/`;
+    baseUrl.pathname = `${basePath}funding/stream`;
+    baseUrl.search = "";
+    baseUrl.hash = "";
+    return baseUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 class FundingStreamClient {
   private listeners = new Set<FundingUpdateListener>();
   private socket: WebSocket | null = null;
@@ -45,7 +78,7 @@ class FundingStreamClient {
       return;
     }
 
-    this.connectEventSource(`${window.location.origin}/api/funding/stream`);
+    this.connectEventSource(getFundingStreamUrl() ?? `${window.location.origin}/api/funding/stream`);
   }
 
   private connectWebSocket(url: string) {
@@ -177,16 +210,16 @@ class FundingStreamClient {
   }
 }
 
-declare global {
-  var __novaFundingStreamClient__: FundingStreamClient | undefined;
-}
-
 function getFundingStreamClient() {
-  if (!globalThis.__novaFundingStreamClient__) {
-    globalThis.__novaFundingStreamClient__ = new FundingStreamClient();
+  const fundingStreamGlobal = globalThis as typeof globalThis & {
+    __novaFundingStreamClient__?: FundingStreamClient;
+  };
+
+  if (!fundingStreamGlobal.__novaFundingStreamClient__) {
+    fundingStreamGlobal.__novaFundingStreamClient__ = new FundingStreamClient();
   }
 
-  return globalThis.__novaFundingStreamClient__;
+  return fundingStreamGlobal.__novaFundingStreamClient__;
 }
 
 export function subscribeToFundingUpdates(listener: FundingUpdateListener) {
