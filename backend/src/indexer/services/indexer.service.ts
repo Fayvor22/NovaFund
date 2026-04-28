@@ -9,10 +9,16 @@ import { DlqService } from './dlq.service';
 import { RpcFallbackService } from '../../stellar/rpc-fallback.service';
 import { SorobanEvent, ParsedContractEvent, ContractEventType } from '../types/event-types';
 import { LedgerInfo } from '../types/ledger.types';
+import { ParserService } from './parser.service';
 
 /**
  * Main indexer service that polls Stellar RPC for contract events
- * and synchronizes them to the local database
+ * and synchronizes them to the local database.
+ * 
+ * Optimized for low memory usage and high performance using:
+ * 1. Stream-based event fetching (batches)
+ * 2. Background worker threads for XDR decoding
+ * 3. Batch parsing of XDRs to reduce IPC overhead
  */
 @Injectable()
 export class IndexerService implements OnModuleInit, OnModuleDestroy {
@@ -34,92 +40,62 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     private readonly eventHandler: EventHandlerService,
     private readonly dlqService: DlqService,
     private readonly rpcFallbackService: RpcFallbackService,
+    private readonly parserService: ParserService,
   ) {
-    // Initialize configuration
     this.network = this.configService.get<string>('STELLAR_NETWORK', 'testnet');
     this.pollIntervalMs = this.configService.get<number>('INDEXER_POLL_INTERVAL_MS', 5000);
     this.maxEventsPerFetch = this.configService.get<number>('INDEXER_MAX_EVENTS_PER_FETCH', 100);
     this.retryAttempts = this.configService.get<number>('INDEXER_RETRY_ATTEMPTS', 3);
     this.retryDelayMs = this.configService.get<number>('INDEXER_RETRY_DELAY_MS', 1000);
-
-    // Get contract IDs from configuration
     this.contractIds = this.getContractIds();
   }
 
-  /**
-   * Get list of contract IDs to monitor from configuration
-   */
   private getContractIds(): string[] {
     const contracts: string[] = [];
-
-    const projectLaunch = this.configService.get<string>('PROJECT_LAUNCH_CONTRACT_ID');
-    if (projectLaunch) contracts.push(projectLaunch);
-
-    const escrow = this.configService.get<string>('ESCROW_CONTRACT_ID');
-    if (escrow) contracts.push(escrow);
-
-    const profitDist = this.configService.get<string>('PROFIT_DISTRIBUTION_CONTRACT_ID');
-    if (profitDist) contracts.push(profitDist);
-
-    const subscription = this.configService.get<string>('SUBSCRIPTION_POOL_CONTRACT_ID');
-    if (subscription) contracts.push(subscription);
-
-    const governance = this.configService.get<string>('GOVERNANCE_CONTRACT_ID');
-    if (governance) contracts.push(governance);
-
-    const reputation = this.configService.get<string>('REPUTATION_CONTRACT_ID');
-    if (reputation) contracts.push(reputation);
-
-    const tokenFactory = this.configService.get<string>('TOKEN_FACTORY_CONTRACT_ID');
-    if (tokenFactory) contracts.push(tokenFactory);
-
+    const ids = [
+      'PROJECT_LAUNCH_CONTRACT_ID',
+      'ESCROW_CONTRACT_ID',
+      'PROFIT_DISTRIBUTION_CONTRACT_ID',
+      'SUBSCRIPTION_POOL_CONTRACT_ID',
+      'GOVERNANCE_CONTRACT_ID',
+      'REPUTATION_CONTRACT_ID',
+      'TOKEN_FACTORY_CONTRACT_ID'
+    ];
+    for (const id of ids) {
+      const val = this.configService.get<string>(id);
+      if (val) contracts.push(val);
+    }
     return contracts;
   }
 
-  /**
-   * Lifecycle hook - called when module initializes
-   */
   async onModuleInit(): Promise<void> {
     this.logger.log('Starting blockchain indexer...');
     await this.initializeIndexer();
   }
 
-  /**
-   * Lifecycle hook - called when module destroys
-   */
   async onModuleDestroy(): Promise<void> {
     this.logger.log('Shutting down blockchain indexer...');
     this.isShuttingDown = true;
-
-    // Wait for current processing to complete
     while (this.isRunning) {
       await this.sleep(100);
     }
-
     this.logger.log('Indexer shutdown complete');
   }
 
-  /**
-   * Initialize the indexer
-   */
   private async initializeIndexer(): Promise<void> {
     try {
-      // Test RPC connection
       const health = await this.rpcFallbackService.executeRpcOperation(
         async (server) => await server.getHealth(),
         'getHealth'
       );
       this.logger.log(`RPC Health: ${health.status}`);
 
-      // Get latest ledger
       const latestLedger = await this.getLatestLedger();
       this.logger.log(`Latest ledger on network: ${latestLedger}`);
 
-      // Initialize or resume from cursor
       const startLedger = await this.ledgerTracker.getStartLedger(latestLedger);
       this.logger.log(`Starting indexing from ledger ${startLedger}`);
 
-      // Trigger initial sync
       await this.pollEvents();
     } catch (error) {
       this.logger.error(`Failed to initialize indexer: ${error.message}`, error.stack);
@@ -127,35 +103,21 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Scheduled polling job - runs at configured interval
-   */
-  @Interval(5000) // Will use dynamic interval from config
+  @Interval(5000)
   async scheduledPoll(): Promise<void> {
     if (this.isShuttingDown) return;
     await this.pollEvents();
   }
 
-  /**
-   * Main polling loop - fetches and processes events
-   */
   async pollEvents(): Promise<void> {
-    if (this.isRunning) {
-      this.logger.debug('Skipping poll - previous poll still running');
-      return;
-    }
-
+    if (this.isRunning) return;
     this.isRunning = true;
 
     try {
-      // Get current cursor
       const cursor = await this.ledgerTracker.getLastCursor();
       const startLedger = cursor ? cursor.lastLedgerSeq + 1 : 1;
-
-      // Get latest ledger from network
       const latestLedger = await this.getLatestLedger();
 
-      // Handle re-orgs: if latest ledger is behind cursor, reset cursor
       if (cursor && latestLedger < cursor.lastLedgerSeq) {
         const newCursor = Math.max(1, latestLedger - 10);
         this.logger.warn(`Re-org detected. Resetting cursor from ${cursor.lastLedgerSeq} to ${newCursor}`);
@@ -163,49 +125,63 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // Check if there's anything to process
-      if (startLedger > latestLedger) {
-        this.logger.debug(`No new ledgers. Current: ${startLedger - 1}, Latest: ${latestLedger}`);
-        return;
-      }
+      if (startLedger > latestLedger) return;
 
       this.logger.log(`Polling events from ledger ${startLedger} to ${latestLedger}`);
 
-      // Fetch events with retry logic
-      const events = await this.fetchEventsWithRetry(startLedger, latestLedger);
+      let totalProcessed = 0;
+      let totalErrors = 0;
+      let totalFound = 0;
 
-      if (events.length === 0) {
-        this.logger.debug('No events found in ledger range');
-        // Still update cursor to show progress
-        await this.ledgerTracker.updateCursor(latestLedger);
-        return;
-      }
+      for await (const eventBatch of this.fetchEventsStream(startLedger, latestLedger)) {
+        totalFound += eventBatch.length;
+        
+        // OPTIMIZATION: Batch parse XDRs using worker threads
+        const xdrs = eventBatch.map(e => e.value);
+        const parsedDataBatch = await this.parserService.parseBatch(xdrs);
 
-      this.logger.log(`Found ${events.length} events to process`);
+        for (let i = 0; i < eventBatch.length; i++) {
+          const event = eventBatch[i];
+          const parsedData = parsedDataBatch[i];
 
-      // Process events
-      let processedCount = 0;
-      let errorCount = 0;
+          try {
+            if (await this.ledgerTracker.isEventProcessed(event.id)) continue;
 
-      for (const event of events) {
-        try {
-          const success = await this.processEvent(event);
-          if (success) processedCount++;
-        } catch (error) {
-          errorCount++;
-          this.logger.error(`Failed to process event ${event.id}: ${error.message}`);
-          // Send to DLQ and advance cursor — prevents a single bad event from blocking the loop
-          await this.dlqService.push(event, error);
+            const eventTypeSymbol = event.topic[0];
+            const eventType = this.parseEventType(eventTypeSymbol);
+            if (!eventType) continue;
+
+            const parsedEvent: ParsedContractEvent = {
+              eventId: event.id,
+              ledgerSeq: event.ledger,
+              ledgerClosedAt: new Date(event.ledgerClosedAt),
+              contractId: event.contractId,
+              eventType,
+              transactionHash: event.txHash,
+              data: { ...parsedData, eventType, rawXdr: event.value },
+              inSuccessfulContractCall: event.inSuccessfulContractCall,
+            };
+
+            if (await this.eventHandler.processEvent(parsedEvent)) {
+              totalProcessed++;
+              await this.ledgerTracker.markEventProcessed(
+                event.id, event.ledger, event.contractId, eventType, event.txHash
+              );
+            }
+          } catch (error) {
+            totalErrors++;
+            this.logger.error(`Failed to process event ${event.id}: ${error.message}`);
+            await this.dlqService.push(event, error);
+          }
         }
       }
 
-      // Update cursor to latest processed ledger
       await this.ledgerTracker.updateCursor(latestLedger);
+      await this.ledgerTracker.logProgress(latestLedger, latestLedger, totalProcessed);
 
-      // Log progress
-      await this.ledgerTracker.logProgress(latestLedger, latestLedger, processedCount);
-
-      this.logger.log(`Processed ${processedCount}/${events.length} events (${errorCount} errors)`);
+      if (totalFound > 0) {
+        this.logger.log(`Processed ${totalProcessed}/${totalFound} events (${totalErrors} errors)`);
+      }
     } catch (error) {
       this.logger.error(`Error in poll cycle: ${error.message}`, error.stack);
       await this.ledgerTracker.logError('Poll cycle failed', { error: error.message });
@@ -214,94 +190,30 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Fetch events from RPC with retry logic
-   */
-  private async fetchEventsWithRetry(
-    startLedger: number,
-    endLedger: number,
-  ): Promise<SorobanEvent[]> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
-      try {
-        return await this.fetchEvents(startLedger, endLedger);
-      } catch (error) {
-        lastError = error;
-        this.logger.warn(`Fetch attempt ${attempt}/${this.retryAttempts} failed: ${error.message}`);
-
-        if (attempt < this.retryAttempts) {
-          const delay = this.retryDelayMs * Math.pow(2, attempt - 1); // Exponential backoff
-          this.logger.log(`Retrying in ${delay}ms...`);
-          await this.sleep(delay);
-        }
-      }
-    }
-
-    throw new Error(
-      `Failed to fetch events after ${this.retryAttempts} attempts: ${lastError?.message}`,
-    );
-  }
-
-  /**
-   * Fetch events from Soroban RPC
-   */
-  private async fetchEvents(startLedger: number, _endLedger: number): Promise<SorobanEvent[]> {
-    const events: SorobanEvent[] = [];
+  private async *fetchEventsStream(startLedger: number, _endLedger: number): AsyncGenerator<SorobanEvent[]> {
     let cursor: string | undefined;
+    const filters: SorobanRpc.Api.EventFilter[] = this.contractIds.length > 0
+      ? this.contractIds.map(id => ({ type: 'contract', contractIds: [id] }))
+      : [{ type: 'contract' }];
 
-    // Build filters for contract events
-    const filters: SorobanRpc.Api.EventFilter[] = [];
-
-    if (this.contractIds.length > 0) {
-      // Add contract ID filters
-      for (const contractId of this.contractIds) {
-        filters.push({
-          type: 'contract',
-          contractIds: [contractId],
-        });
-      }
-    } else {
-      // If no contracts specified, fetch all contract events
-      filters.push({
-        type: 'contract',
-      });
-    }
-
+    let totalFetched = 0;
     do {
-      const request = {
-        startLedger,
-        filters,
-        limit: this.maxEventsPerFetch,
-        cursor,
-      };
-
       const response = await this.rpcFallbackService.executeRpcOperation(
-        async (server) => await server.getEvents(request),
+        async (server) => await server.getEvents({ startLedger, filters, limit: this.maxEventsPerFetch, cursor }),
         'getEvents'
       );
 
-      if (response.events) {
-        for (const event of response.events) {
-          events.push(this.transformRpcEvent(event));
-        }
-      }
+      if (response.events && response.events.length > 0) {
+        const batch = response.events.map(event => this.transformRpcEvent(event));
+        totalFetched += batch.length;
+        yield batch;
+      } else break;
 
       cursor = (response as any).cursor;
-
-      // Safety check - don't fetch too many events at once
-      if (events.length >= this.maxEventsPerFetch * 5) {
-        this.logger.warn(`Event fetch limit reached. Processing ${events.length} events.`);
-        break;
-      }
+      if (totalFetched >= this.maxEventsPerFetch * 5) break;
     } while (cursor);
-
-    return events;
   }
 
-  /**
-   * Transform RPC event to internal format
-   */
   private transformRpcEvent(event: SorobanRpc.Api.EventResponse): SorobanEvent {
     return {
       type: event.type,
@@ -317,117 +229,10 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  /**
-   * Process a single event
-   */
-  private async processEvent(event: SorobanEvent): Promise<boolean> {
-    // Check if already processed (idempotency)
-    const isProcessed = await this.ledgerTracker.isEventProcessed(event.id);
-    if (isProcessed) {
-      this.logger.debug(`Event ${event.id} already processed, skipping`);
-      return false;
-    }
-
-    // Parse event
-    const parsedEvent = this.parseEvent(event);
-    if (!parsedEvent) {
-      this.logger.warn(`Failed to parse event ${event.id}`);
-      return false;
-    }
-
-    // Process through handler
-    const success = await this.eventHandler.processEvent(parsedEvent);
-
-    if (success) {
-      // Mark as processed
-      await this.ledgerTracker.markEventProcessed(
-        event.id,
-        event.ledger,
-        event.contractId,
-        parsedEvent.eventType,
-        event.txHash,
-      );
-    }
-
-    return success;
-  }
-
-  /**
-   * Parse raw event into structured format
-   */
-  private parseEvent(event: SorobanEvent): ParsedContractEvent | null {
-    try {
-      // Extract event type from topic
-      // Topic structure: [event_type_symbol, ...other_topics]
-      const eventTypeSymbol = event.topic[0];
-      if (!eventTypeSymbol) {
-        this.logger.warn(`Event ${event.id} missing topic`);
-        return null;
-      }
-
-      // Parse event type
-      const eventType = this.parseEventType(eventTypeSymbol);
-      if (!eventType) {
-        this.logger.debug(`Unknown event type: ${eventTypeSymbol}`);
-        return null;
-      }
-
-      // Parse event data from XDR value
-      const data = this.parseEventData(event.value, eventType);
-
-      return {
-        eventId: event.id,
-        ledgerSeq: event.ledger,
-        ledgerClosedAt: new Date(event.ledgerClosedAt),
-        contractId: event.contractId,
-        eventType,
-        transactionHash: event.txHash,
-        data,
-        inSuccessfulContractCall: event.inSuccessfulContractCall,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing event ${event.id}: ${error.message}`);
-      return null;
-    }
-  }
-
-  /**
-   * Parse event type from topic symbol
-   */
   private parseEventType(symbol: string): ContractEventType | null {
-    // Map symbol to event type enum
-    const eventType = Object.values(ContractEventType).find((type) => type === symbol);
-    return eventType || null;
+    return Object.values(ContractEventType).find((type) => type === symbol) || null;
   }
 
-  /**
-   * Parse event data from XDR value
-   * This is a simplified parser - in production, you'd use proper XDR decoding
-   */
-  private parseEventData(valueXdr: string, eventType: ContractEventType): Record<string, unknown> {
-    try {
-      // For now, return a placeholder - proper XDR parsing requires
-      // the Soroban SDK's ScVal parsing which depends on the specific event structure
-      // This should be enhanced based on your actual event data structure
-
-      // Attempt basic XDR parsing if possible
-      // Note: Full implementation would use xdr.ScVal.fromXDR() and proper type conversion
-
-      return {
-        rawXdr: valueXdr,
-        eventType,
-        // Add parsed fields based on event type
-        // This is where you'd decode the actual event data
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to parse event data: ${error.message}`);
-      return { rawXdr: valueXdr };
-    }
-  }
-
-  /**
-   * Get latest ledger from RPC
-   */
   private async getLatestLedger(): Promise<number> {
     const latestLedger = await this.rpcFallbackService.executeRpcOperation(
       async (server) => await server.getLatestLedger(),
@@ -436,25 +241,6 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     return latestLedger.sequence;
   }
 
-  /**
-   * Get ledger info
-   */
-  private async getLedgerInfo(sequence: number): Promise<LedgerInfo> {
-    // Note: This would use getLedger RPC method
-    // For now, return basic info
-    return {
-      sequence,
-      hash: '', // Would be populated from RPC
-      prevHash: '',
-      closedAt: new Date(),
-      successfulTransactionCount: 0,
-      failedTransactionCount: 0,
-    };
-  }
-
-  /**
-   * Utility: Sleep for specified milliseconds
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

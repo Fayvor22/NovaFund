@@ -1,3 +1,4 @@
+// public.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProjectDto } from './dto/project.dto';
@@ -90,6 +91,9 @@ export class PublicController {
 
     return {
       totalProjects,
+      totalFunding: totalFundingResult._sum.currentFunds ?? 0,
+      activeUsers,
+    };
       totalFundsRaised: totalFunds._sum.currentFunds ?? 0,
     };
       totalFunding: totalFundingResult._sum.currentFunds || 0,

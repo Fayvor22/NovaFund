@@ -6,6 +6,7 @@ import { LedgerTrackerService } from './services/ledger-tracker.service';
 import { EventHandlerService } from './services/event-handler.service';
 import { DlqService } from './services/dlq.service';
 import { SorobanEventIndexerService } from './services/soroban-event-indexer.service';
+import { ParserService } from './services/parser.service';
 import { FundingStreamService } from './services/funding-stream.service';
 import { FundingStreamController } from './controllers/funding-stream.controller';
 import { DatabaseModule } from '../database.module';
@@ -44,6 +45,8 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     FundingStreamService,
     // Dead Letter Queue
     DlqService,
+    // Background XDR Parsing
+    ParserService,
     // Daily scheduled audit task
     EscrowAuditTask,
   ],
@@ -55,6 +58,7 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     FundingStreamService,
     DlqService,
     SorobanEventIndexerService,
+    ParserService,
   ],
 })
 export class IndexerModule {}
