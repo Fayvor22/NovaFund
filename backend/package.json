@@ -75,7 +75,10 @@
     "stellar-sdk": "^13.3.0",
     "twilio": "^5.13.1",
     "typeorm": "^0.3.28",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.4",
+    "discord.js": "^14.16.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
@@ -87,6 +90,8 @@
     "@types/node": "^20.3.1",
     "@types/supertest": "^2.0.12",
     "@types/web-push": "^3.6.4",
+    "@types/speakeasy": "^2.0.10",
+    "@types/qrcode": "^1.5.5",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.42.0",
