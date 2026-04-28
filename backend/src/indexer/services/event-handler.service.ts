@@ -92,6 +92,7 @@ import { IEventHandler, IEventHandlerRegistry } from '../interfaces/event-handle
 import { NotificationService } from '../../notification/services/notification.service';
 import { ReputationService } from '../../reputation/reputation.service';
 import { RedisService } from '../../redis/redis.service';
+import { FundingStreamService } from './funding-stream.service';
 
 /**
  * Handler for PROJECT_CREATED events
@@ -181,6 +182,7 @@ class ContributionMadeHandler implements IEventHandler {
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
     private readonly configService: ConfigService,
+    private readonly fundingStreamService: FundingStreamService,
   ) {}
 
   validate(event: ParsedContractEvent): boolean {
@@ -216,6 +218,13 @@ class ContributionMadeHandler implements IEventHandler {
     }
 
     // Create contribution
+    const normalizedAmount = normalizeToStroops(data.amount, project.tokenAddress, this.configService);
+    const normalizedTotalRaised = normalizeToStroops(
+      data.totalRaised,
+      project.tokenAddress,
+      this.configService,
+    );
+
     await this.prisma.contribution.upsert({
       where: { transactionHash: event.transactionHash },
       update: {},
@@ -223,7 +232,7 @@ class ContributionMadeHandler implements IEventHandler {
         transactionHash: event.transactionHash,
         investorId: user.id,
         projectId: project.id,
-        amount: normalizeToStroops(data.amount, project.tokenAddress, this.configService),
+        amount: normalizedAmount,
         timestamp: event.ledgerClosedAt,
       },
     });
@@ -232,9 +241,38 @@ class ContributionMadeHandler implements IEventHandler {
     await this.prisma.project.update({
       where: { id: project.id },
       data: {
-        currentFunds: normalizeToStroops(data.totalRaised, project.tokenAddress, this.configService),
+        currentFunds: normalizedTotalRaised,
       },
     });
+
+    let backers: number | undefined;
+
+    try {
+      const contributors = await this.prisma.contribution.findMany({
+        where: { projectId: project.id },
+        select: { investorId: true },
+        distinct: ['investorId'],
+      });
+
+      backers = contributors.length;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to count distinct backers for project ${project.id}: ${message}`);
+    }
+
+    try {
+      this.fundingStreamService.publish({
+        id: event.eventId || event.transactionHash,
+        projectId: project.id,
+        raised: normalizedTotalRaised.toString(),
+        amount: normalizedAmount.toString(),
+        ...(backers !== undefined ? { backers } : {}),
+        timestamp: event.ledgerClosedAt.toISOString(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to publish funding update for project ${project.id}: ${message}`);
+    }
 
     // Dispatch notification
     try {
@@ -598,6 +636,7 @@ export class EventHandlerService implements IEventHandlerRegistry {
     private readonly reputationService: ReputationService,
     private readonly redisService: RedisService,
     private readonly configService: ConfigService,
+    private readonly fundingStreamService: FundingStreamService,
   ) {
     this.registerHandlers();
   }
@@ -607,7 +646,15 @@ export class EventHandlerService implements IEventHandlerRegistry {
    */
   private registerHandlers(): void {
     this.register(new ProjectCreatedHandler(this.prisma, this.redisService, this.configService));
-    this.register(new ContributionMadeHandler(this.prisma, this.notificationService, this.redisService, this.configService));
+    this.register(
+      new ContributionMadeHandler(
+        this.prisma,
+        this.notificationService,
+        this.redisService,
+        this.configService,
+        this.fundingStreamService,
+      ),
+    );
     this.register(
       new MilestoneApprovedHandler(this.prisma, this.notificationService, this.reputationService),
     );
