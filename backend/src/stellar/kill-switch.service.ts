@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SorobanRpc, TransactionBuilder, Server, Keypair, Networks, Contract } from '@stellar/stellar-sdk';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma.service';
+import { SimulatorService } from './simulator.service';
 
 @Injectable()
 export class KillSwitchService {
@@ -8,7 +9,10 @@ export class KillSwitchService {
   private server = new Server('https://soroban-testnet.stellar.org');
   private rpc = new SorobanRpc.Server('https://soroban-testnet.stellar.org');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private simulator: SimulatorService,
+  ) {}
 
   async pauseAllContracts(adminKeypair: Keypair): Promise<void> {
     try {
@@ -46,11 +50,15 @@ export class KillSwitchService {
 
       tx.sign(keypair);
 
-      // Simulate first
-      const sim = await this.rpc.simulateTransaction(tx);
-      if (sim.error) {
-        throw new Error(`Simulation failed: ${sim.error}`);
+      // Simulate first using the unified SimulatorService
+      const simResult = await this.simulator.simulate(tx.toXDR());
+      if (!simResult.success) {
+        throw new Error(`Simulation failed for contract ${contractId}: ${simResult.error}`);
       }
+
+      // Update fee if needed (simulation returns minResourceFee)
+      // For emergency pause, we might want to stick to a high fee or use simulation result
+      this.logger.debug(`Simulation for ${contractId} successful. Min fee: ${simResult.minResourceFee}`);
 
       // Submit
       const result = await this.rpc.sendTransaction(tx);

@@ -1,8 +1,7 @@
 import { Controller, Get, Param, Post, Put, Body, UseGuards } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { AccountSecurityService } from './user/account-security.service';
-// TODO: Add admin guard
-// import { AdminGuard } from './guards/admin.guard';
+import { AdminGuard } from './guards/admin.guard';
 
 @Controller('api/user')
 export class UserController {
@@ -45,7 +44,7 @@ export class UserController {
   }
 
   @Put('freeze-request/:requestId/review')
-  // @UseGuards(AdminGuard) // TODO: Add admin guard
+  @UseGuards(AdminGuard)
   async reviewFreezeRequest(
     @Param('requestId') requestId: string,
     @Body() body: { adminId: string; approved: boolean; adminNotes?: string },
@@ -59,7 +58,7 @@ export class UserController {
   }
 
   @Put(':id/unfreeze')
-  // @UseGuards(AdminGuard) // TODO: Add admin guard
+  @UseGuards(AdminGuard)
   async unfreezeAccount(
     @Param('id') userId: string,
     @Body() body: { adminId: string; reason: string },
@@ -74,7 +73,7 @@ export class UserController {
   }
 
   @Get('freeze-requests/pending')
-  // @UseGuards(AdminGuard) // TODO: Add admin guard
+  @UseGuards(AdminGuard)
   async getPendingFreezeRequests() {
     return this.accountSecurity.getPendingFreezeRequests();
   }

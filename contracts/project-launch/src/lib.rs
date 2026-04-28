@@ -1,6 +1,7 @@
 #![no_std]
 
 mod rwa_metadata;
+mod asset_whitelist;
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, token::TokenClient, Address, Bytes, Env, String,
@@ -17,7 +18,7 @@ use shared::{
         PROJECT_FAILED, REFUND_ISSUED, RWA_METADATA_UPDATED, UPGRADE_CANCELLED, UPGRADE_EXECUTED,
         UPGRADE_SCHEDULED,
     },
-    types::{Jurisdiction, PauseState, PendingUpgrade},
+    types::{Jurisdiction, KycTier, PauseState, PendingUpgrade},
     utils::verify_future_timestamp,
 };
 use soroban_sdk::BytesN;
@@ -76,10 +77,11 @@ pub enum DataKey {
     ProjectFailureProcessed = 5, // (DataKey::ProjectFailureProcessed, project_id) -> bool
     IdentityContract = 6,   // Address of the Identity Verification contract
     ProjectJurisdictions = 7, // (DataKey::ProjectJurisdictions, project_id) -> Vec<Jurisdiction>
-    PauseState = 8,
-    PendingUpgrade = 9,
-    RwaMetadataCid = 10, // (DataKey::RwaMetadataCid, project_id) -> String
-    GovernanceContract = 11, // Address of the Governance DAO contract for upgrade approval
+    AssetWhitelist = 8, // (DataKey::AssetWhitelist, asset) -> KycTier
+    PauseState = 9,
+    PendingUpgrade = 10,
+    RwaMetadataCid = 11, // (DataKey::RwaMetadataCid, project_id) -> String
+    GovernanceContract = 12, // Address of the Governance DAO contract for upgrade approval
 }
 
 #[contract]
@@ -134,6 +136,26 @@ impl ProjectLaunch {
             .set(&DataKey::GovernanceContract, &governance_contract);
 
         Ok(())
+    }
+
+    /// Register or update an asset whitelist entry with the required KYC tier.
+    pub fn set_asset_whitelist_tier(
+        env: Env,
+        admin: Address,
+        asset: Address,
+        required_tier: KycTier,
+    ) -> Result<(), Error> {
+        asset_whitelist::AssetWhitelist::set(env, admin, asset, required_tier)
+    }
+
+    /// Remove an asset from the protected asset whitelist.
+    pub fn remove_asset_from_whitelist(env: Env, admin: Address, asset: Address) -> Result<(), Error> {
+        asset_whitelist::AssetWhitelist::remove(env, admin, asset)
+    }
+
+    /// Get the required KYC tier for an asset if it is protected.
+    pub fn get_asset_whitelist_tier(env: Env, asset: Address) -> Option<KycTier> {
+        asset_whitelist::AssetWhitelist::get_required_tier(&env, &asset)
     }
 
     /// Get the Governance DAO contract address
@@ -249,6 +271,7 @@ impl ProjectLaunch {
         }
 
         // Verify Identity if required
+        let mut user_tier = 0u32;
         if let Some(jurisdictions) = env
             .storage()
             .instance()
@@ -260,7 +283,6 @@ impl ProjectLaunch {
                 .get::<_, Address>(&DataKey::IdentityContract)
             {
                 let identity_client = IdentityContractClient::new(&env, &identity_contract);
-                let mut user_tier = 0;
                 for jurisdiction in jurisdictions.iter() {
                     let tier = identity_client.get_tier(&contributor, &jurisdiction);
                     if tier > user_tier {
@@ -285,6 +307,8 @@ impl ProjectLaunch {
                 return Err(Error::Unauthorized);
             }
         }
+
+        asset_whitelist::AssetWhitelist::validate_asset_kyc(&env, &project.token, user_tier)?;
 
         // Update project totals
         project.total_raised += amount;
@@ -327,10 +351,6 @@ impl ProjectLaunch {
     }
 
     /// Store or replace the root IPFS CID for a project's legal and audit bundle.
-    ///
-    /// Only the project creator may update this pointer. The on-chain value stores
-    /// just the current root CID so related documents can be appended off-chain
-    /// without increasing contract storage usage.
     pub fn update_rwa_metadata(
         env: Env,
         project_id: u64,
@@ -373,7 +393,6 @@ impl ProjectLaunch {
     }
 
     /// Check if project deadline has passed and mark it as failed if funding goal not met
-    /// This can be called by anyone to trigger the failure status update
     pub fn mark_project_failed(env: Env, project_id: u64) -> Result<(), Error> {
         // Get project
         let mut project: Project = env
@@ -386,7 +405,7 @@ impl ProjectLaunch {
 
         // Check if deadline has passed
         if current_time <= project.deadline {
-            return Err(Error::InvInput); // Deadline hasn't passed yet
+            return Err(Error::InvInput);
         }
 
         // Check if project is already failed or completed
@@ -405,12 +424,9 @@ impl ProjectLaunch {
 
         // Check if funding goal was met
         if project.total_raised >= project.funding_goal {
-            // Project succeeded, mark as completed instead
             project.status = ProjectStatus::Completed;
         } else {
-            // Project failed due to insufficient funding
             project.status = ProjectStatus::Failed;
-            // Emit event to indicate project failure
             env.events().publish((PROJECT_FAILED,), project_id);
         }
 
@@ -477,7 +493,7 @@ impl ProjectLaunch {
         // Check if refund has already been processed for this contributor
         let refund_key = (DataKey::RefundProcessed, project_id, contributor.clone());
         if env.storage().instance().has(&refund_key) {
-            return Err(Error::InvInput); // Already refunded
+            return Err(Error::InvInput);
         }
 
         // Get contribution amount
@@ -489,7 +505,7 @@ impl ProjectLaunch {
             .unwrap_or(0);
 
         if contribution_amount <= 0 {
-            return Err(Error::InvInput); // No contribution to refund
+            return Err(Error::InvInput);
         }
 
         // Transfer tokens back to contributor
@@ -526,7 +542,6 @@ impl ProjectLaunch {
     }
 
     // ---------- Pause (emergency) ----------
-    /// Pause the contract. Admin only. Critical operations (create_project, contribute) are blocked.
     pub fn pause(env: Env, admin: Address) -> Result<(), Error> {
         let stored_admin: Address = env
             .storage()
@@ -548,7 +563,6 @@ impl ProjectLaunch {
         Ok(())
     }
 
-    /// Resume the contract. Admin only. Only allowed after RESUME_TIME_DELAY has passed.
     pub fn resume(env: Env, admin: Address) -> Result<(), Error> {
         let stored_admin: Address = env
             .storage()
@@ -584,7 +598,6 @@ impl ProjectLaunch {
         Ok(())
     }
 
-    /// Returns whether the contract is currently paused.
     pub fn get_is_paused(env: Env) -> bool {
         let state: PauseState = env
             .storage()
@@ -599,31 +612,25 @@ impl ProjectLaunch {
     }
 
     // ---------- Upgrade (time-locked, governance-controlled) ----------
-    /// Schedule an upgrade. Requires approved proposal ID from Governance DAO. 
-    /// The proposal must be executed and approve this specific upgrade.
     pub fn schedule_upgrade(
         env: Env,
         proposer: Address,
         new_wasm_hash: BytesN<32>,
         proposal_id: u64,
     ) -> Result<(), Error> {
-        // Verify governance contract is configured
         let governance_contract: Address = env
             .storage()
             .instance()
             .get(&DataKey::GovernanceContract)
             .ok_or(Error::NotInit)?;
 
-        // Verify the proposal exists and is approved
         let governance_client = GovernanceContractClient::new(&env, &governance_contract);
         let proposal = governance_client.get_proposal(&proposal_id);
-        
-        // Check proposal is executed (approved by DAO)
+
         if !proposal.executed {
             return Err(Error::Unauthorized);
         }
 
-        // Verify the proposer has voting rights on this proposal
         if !governance_client.has_voted(&proposal_id, &proposer) {
             return Err(Error::Unauthorized);
         }
@@ -645,13 +652,9 @@ impl ProjectLaunch {
         Ok(())
     }
 
-    /// Execute a scheduled upgrade. Callable by anyone after time-lock period if governance-approved.
-    /// Contract must be paused for security during the upgrade execution.
     pub fn execute_upgrade(env: Env, executor: Address) -> Result<(), Error> {
         executor.require_auth();
 
-        // Governance approval was already verified in schedule_upgrade
-        // Anyone can execute after time-lock if properly scheduled
         if !Self::get_is_paused(env.clone()) {
             return Err(Error::UpgReqPause);
         }
@@ -672,7 +675,6 @@ impl ProjectLaunch {
         Ok(())
     }
 
-    /// Cancel a scheduled upgrade. Admin only.
     pub fn cancel_upgrade(env: Env, admin: Address) -> Result<(), Error> {
         let stored_admin: Address = env
             .storage()
@@ -691,7 +693,6 @@ impl ProjectLaunch {
         Ok(())
     }
 
-    /// Get pending upgrade info, if any.
     pub fn get_pending_upgrade(env: Env) -> Option<PendingUpgrade> {
         env.storage().instance().get(&DataKey::PendingUpgrade)
     }
@@ -700,6 +701,7 @@ impl ProjectLaunch {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use identity::IdentityContractClient;
     use soroban_sdk::{
         testutils::{Address as TestAddress, Ledger},
         token, Address, Bytes, String,
@@ -725,7 +727,6 @@ mod tests {
 
         let admin = Address::generate(&env);
 
-        // Test successful initialization
         assert!(!client.is_initialized());
         env.mock_all_auths();
         client.initialize(&admin);
@@ -748,11 +749,9 @@ mod tests {
         env.mock_all_auths();
         client.initialize(&admin);
 
-        // Set up time
         env.ledger().set_timestamp(1000000);
 
-        // Test successful project creation
-        let deadline = 1000000 + MIN_PROJECT_DURATION + 86400; // 2 days from now
+        let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
             &creator,
             &MIN_FUNDING_GOAL,
@@ -765,7 +764,6 @@ mod tests {
         assert_eq!(project_id, 0);
         assert_eq!(client.get_next_project_id(), 1);
 
-        // Test invalid funding goal
         let result = client.try_create_project(
             &creator,
             &(MIN_FUNDING_GOAL - 1),
@@ -776,7 +774,6 @@ mod tests {
         );
         assert!(result.is_err());
 
-        // Test invalid deadline (too soon)
         let too_soon_deadline = 1000000 + MIN_PROJECT_DURATION - 1;
         let result = client.try_create_project(
             &creator,
@@ -801,15 +798,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register a token contract
         let token_admin = Address::generate(&env);
         let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -821,43 +815,246 @@ mod tests {
             &None,
         );
 
-        // Mint tokens to contributor
         env.mock_all_auths();
         token_admin_client.mint(&contributor, &100_0000000);
 
         assert_eq!(token_client.balance(&contributor), 100_0000000);
         assert_eq!(token_client.balance(&client.address), 0);
 
-        // Test successful contribution
         client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
 
         assert_eq!(token_client.balance(&contributor), 90_0000000);
         assert_eq!(token_client.balance(&client.address), 10_0000000);
 
-        // Verify contribution amount
         assert_eq!(
             client.get_user_contribution(&project_id, &contributor),
             MIN_CONTRIBUTION
         );
 
-        // Test multiple contributions from same user
         client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
         assert_eq!(
             client.get_user_contribution(&project_id, &contributor),
             MIN_CONTRIBUTION * 2
         );
 
-        // Test contribution too low
         let result = client.try_contribute(&project_id, &contributor, &(MIN_CONTRIBUTION - 1));
         assert!(result.is_err());
 
-        // Test contribution to non-existent project
         let result = client.try_contribute(&999, &contributor, &MIN_CONTRIBUTION);
         assert!(result.is_err());
 
-        // Test contribution after deadline
         env.ledger().set_timestamp(deadline + 1);
         let result = client.try_contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_admin_can_set_update_and_remove_asset_whitelist_entries() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let asset = Address::generate(&env);
+
+        client.initialize(&admin);
+
+        client.set_asset_whitelist_tier(&admin, &asset, &1u32);
+        assert_eq!(client.get_asset_whitelist_tier(&asset), Some(1u32));
+
+        client.set_asset_whitelist_tier(&admin, &asset, &2u32);
+        assert_eq!(client.get_asset_whitelist_tier(&asset), Some(2u32));
+
+        client.remove_asset_from_whitelist(&admin, &asset);
+        assert_eq!(client.get_asset_whitelist_tier(&asset), None);
+    }
+
+    #[test]
+    fn test_non_admin_cannot_modify_asset_whitelist() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let non_admin = Address::generate(&env);
+        let asset = Address::generate(&env);
+
+        client.initialize(&admin);
+
+        let result = client.try_set_asset_whitelist_tier(&non_admin, &asset, &1u32);
+        assert!(result.is_err());
+        assert_eq!(client.get_asset_whitelist_tier(&asset), None);
+
+        let result = client.try_remove_asset_from_whitelist(&non_admin, &asset);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_whitelist_tier_is_rejected() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let asset = Address::generate(&env);
+
+        client.initialize(&admin);
+
+        let result = client.try_set_asset_whitelist_tier(&admin, &asset, &0u32);
+        assert!(result.is_err());
+        assert_eq!(client.get_asset_whitelist_tier(&asset), None);
+    }
+
+    #[test]
+    fn test_contribute_requires_asset_whitelist_tier_for_protected_assets() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        let identity_contract_id = env.register_contract(None, identity::IdentityContract);
+        let identity_client = IdentityContractClient::new(&env, &identity_contract_id);
+
+        let admin = Address::generate(&env);
+        let creator = Address::generate(&env);
+        let contributor = Address::generate(&env);
+
+        client.initialize(&admin);
+        client.set_identity_contract(&identity_contract_id);
+
+        let token_admin = Address::generate(&env);
+        let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+        let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
+        let jurisdictions = soroban_sdk::Vec::from_array(&env, [Jurisdiction::Global]);
+
+        env.ledger().set_timestamp(1000000);
+        let project_id = client.create_project(
+            &creator,
+            &MIN_FUNDING_GOAL,
+            &(1000000 + MIN_PROJECT_DURATION + 86400),
+            &token,
+            &metadata_hash,
+            &Some(jurisdictions.clone()),
+        );
+
+        client.set_asset_whitelist_tier(&admin, &token, &2u32);
+
+        env.mock_all_auths();
+        identity_client.verify_identity(
+            &contributor,
+            &Jurisdiction::Global,
+            &Bytes::from_slice(&env, b"proof"),
+            &Bytes::from_slice(&env, b"public"),
+            &2u32,
+        );
+
+        env.mock_all_auths();
+        token_admin_client.mint(&contributor, &100_0000000);
+
+        client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
+        assert_eq!(client.get_user_contribution(&project_id, &contributor), MIN_CONTRIBUTION);
+    }
+
+    #[test]
+    fn test_contribution_fails_when_asset_whitelist_tier_is_not_met() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        let identity_contract_id = env.register_contract(None, identity::IdentityContract);
+        let identity_client = IdentityContractClient::new(&env, &identity_contract_id);
+
+        let admin = Address::generate(&env);
+        let creator = Address::generate(&env);
+        let contributor = Address::generate(&env);
+
+        client.initialize(&admin);
+        client.set_identity_contract(&identity_contract_id);
+
+        let token_admin = Address::generate(&env);
+        let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+        let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
+        let jurisdictions = soroban_sdk::Vec::from_array(&env, [Jurisdiction::Global]);
+
+        env.ledger().set_timestamp(1000000);
+        let project_id = client.create_project(
+            &creator,
+            &MIN_FUNDING_GOAL,
+            &(1000000 + MIN_PROJECT_DURATION + 86400),
+            &token,
+            &metadata_hash,
+            &Some(jurisdictions.clone()),
+        );
+
+        client.set_asset_whitelist_tier(&admin, &token, &2u32);
+
+        env.mock_all_auths();
+        identity_client.verify_identity(
+            &contributor,
+            &Jurisdiction::Global,
+            &Bytes::from_slice(&env, b"proof"),
+            &Bytes::from_slice(&env, b"public"),
+            &1u32,
+        );
+
+        env.mock_all_auths();
+        token_admin_client.mint(&contributor, &100_0000000);
+
+        let result = client.try_contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
+        assert!(result.is_err());
+        assert_eq!(token_client.balance(&contributor), 100_0000000);
+    }
+
+    #[test]
+    fn test_whitelist_non_protected_asset_does_not_change_existing_contribution_flow() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let creator = Address::generate(&env);
+        let contributor = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
+
+        client.initialize(&admin);
+
+        env.ledger().set_timestamp(1000000);
+        let project_id = client.create_project(
+            &creator,
+            &MIN_FUNDING_GOAL,
+            &(1000000 + MIN_PROJECT_DURATION + 86400),
+            &token,
+            &Bytes::from_slice(&env, b"QmHash123"),
+            &None,
+        );
+
+        env.mock_all_auths();
+        token_admin_client.mint(&contributor, &100_0000000);
+        client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
+
+        assert_eq!(token_client.balance(&contributor), 90_0000000);
+    }
+
+    #[test]
+    fn test_remove_nonexistent_asset_whitelist_entry_returns_not_found() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let asset = Address::generate(&env);
+
+        client.initialize(&admin);
+
+        let result = client.try_remove_asset_from_whitelist(&admin, &asset);
         assert!(result.is_err());
     }
 
@@ -932,14 +1129,12 @@ mod tests {
             .mock_all_auths()
             .try_update_rwa_metadata(&project_id, &intruder, &cid);
 
-        // Soroban `try_` clients can surface contract failures either as an
-        // invoke error (outer `Err`) or as a conversion failure (inner `Err`).
         assert!(result.is_err() || matches!(result, Ok(Err(_))));
         assert_eq!(client.get_rwa_metadata(&project_id), None);
     }
 
     #[test]
-    #[should_panic] // Since require_auth() will fail without mocking or proper signature
+    #[should_panic]
     fn test_create_project_unauthorized() {
         let env = Env::default();
         let contract_id = env.register_contract(None, ProjectLaunch);
@@ -954,7 +1149,6 @@ mod tests {
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
 
-        // Call without mocking auth for 'creator'
         client.create_project(
             &creator,
             &MIN_FUNDING_GOAL,
@@ -977,15 +1171,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, _token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -997,7 +1188,6 @@ mod tests {
             &None,
         );
 
-        // Mint tokens and contribute less than goal
         token_admin_client.mint(&contributor, &50_0000000);
         client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
 
@@ -1005,14 +1195,11 @@ mod tests {
         assert_eq!(project.status, ProjectStatus::Active);
         assert!(!client.is_failure_processed(&project_id));
 
-        // Try to mark as failed before deadline - should fail
         let result = client.try_mark_project_failed(&project_id);
         assert!(result.is_err());
 
-        // Move past deadline
         env.ledger().set_timestamp(deadline + 1);
 
-        // Mark project as failed
         let result = client.try_mark_project_failed(&project_id);
         assert!(result.is_ok());
         assert!(client.is_failure_processed(&project_id));
@@ -1020,7 +1207,6 @@ mod tests {
         let project = client.get_project(&project_id);
         assert_eq!(project.status, ProjectStatus::Failed);
 
-        // Try to mark as failed again - should fail
         let result = client.try_mark_project_failed(&project_id);
         assert!(result.is_err());
     }
@@ -1037,15 +1223,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, _token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project with funding goal of 1000 XLM
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -1057,18 +1240,14 @@ mod tests {
             &None,
         );
 
-        // Mint tokens and contribute full amount (meets goal)
         let mint_amount = MIN_FUNDING_GOAL + 100_0000000;
         token_admin_client.mint(&contributor, &mint_amount);
         client.contribute(&project_id, &contributor, &MIN_FUNDING_GOAL);
 
-        // Move past deadline
         env.ledger().set_timestamp(deadline + 1);
 
-        // Mark project status
         client.mark_project_failed(&project_id);
 
-        // Should be completed since goal was met
         let project = client.get_project(&project_id);
         assert_eq!(project.status, ProjectStatus::Completed);
     }
@@ -1085,15 +1264,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -1105,29 +1281,23 @@ mod tests {
             &None,
         );
 
-        // Mint tokens and contribute
         token_admin_client.mint(&contributor, &50_0000000);
         client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
 
         let initial_balance = token_client.balance(&contributor);
-        assert_eq!(initial_balance, 40_0000000); // 50 - 10
+        assert_eq!(initial_balance, 40_0000000);
 
-        // Move past deadline and mark as failed
         env.ledger().set_timestamp(deadline + 1);
         client.mark_project_failed(&project_id);
 
-        // Refund contributor
         let refund_amount = client.refund_contributor(&project_id, &contributor);
         assert_eq!(refund_amount, MIN_CONTRIBUTION);
 
-        // Verify tokens were returned
         let new_balance = token_client.balance(&contributor);
-        assert_eq!(new_balance, 50_0000000); // Initial 50 restored
+        assert_eq!(new_balance, 50_0000000);
 
-        // Verify refund was recorded
         assert!(client.is_refunded(&project_id, &contributor));
 
-        // Try to refund again - should fail
         let result = client.try_refund_contributor(&project_id, &contributor);
         assert!(result.is_err());
     }
@@ -1145,15 +1315,12 @@ mod tests {
         let contributor1 = Address::generate(&env);
         let contributor2 = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -1165,7 +1332,6 @@ mod tests {
             &None,
         );
 
-        // Mint and contribute from multiple users
         token_admin_client.mint(&contributor1, &100_0000000);
         token_admin_client.mint(&contributor2, &100_0000000);
 
@@ -1175,31 +1341,21 @@ mod tests {
         client.contribute(&project_id, &contributor1, &contrib1_amount);
         client.contribute(&project_id, &contributor2, &contrib2_amount);
 
-        assert_eq!(
-            token_client.balance(&contributor1),
-            100_0000000 - contrib1_amount
-        );
-        assert_eq!(
-            token_client.balance(&contributor2),
-            100_0000000 - contrib2_amount
-        );
+        assert_eq!(token_client.balance(&contributor1), 100_0000000 - contrib1_amount);
+        assert_eq!(token_client.balance(&contributor2), 100_0000000 - contrib2_amount);
 
-        // Move past deadline and mark as failed
         env.ledger().set_timestamp(deadline + 1);
         client.mark_project_failed(&project_id);
 
-        // Refund both contributors
         let refund1 = client.refund_contributor(&project_id, &contributor1);
         let refund2 = client.refund_contributor(&project_id, &contributor2);
 
         assert_eq!(refund1, contrib1_amount);
         assert_eq!(refund2, contrib2_amount);
 
-        // Verify balances
         assert_eq!(token_client.balance(&contributor1), 100_0000000);
         assert_eq!(token_client.balance(&contributor2), 100_0000000);
 
-        // Both should be marked as refunded
         assert!(client.is_refunded(&project_id, &contributor1));
         assert!(client.is_refunded(&project_id, &contributor2));
     }
@@ -1216,15 +1372,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, _token_client, _token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -1236,11 +1389,9 @@ mod tests {
             &None,
         );
 
-        // Move past deadline and mark as failed
         env.ledger().set_timestamp(deadline + 1);
         client.mark_project_failed(&project_id);
 
-        // Try to refund someone with no contribution - should fail
         let result = client.try_refund_contributor(&project_id, &contributor);
         assert!(result.is_err());
     }
@@ -1257,15 +1408,12 @@ mod tests {
         let creator = Address::generate(&env);
         let contributor = Address::generate(&env);
 
-        // Initialize
         client.initialize(&admin.clone());
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, _token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let project_id = client.create_project(
@@ -1277,23 +1425,18 @@ mod tests {
             &None,
         );
 
-        // Mint and contribute
         token_admin_client.mint(&contributor, &50_0000000);
         client.contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
 
-        // Try to refund while project active - should fail
         let result = client.try_refund_contributor(&project_id, &contributor);
         assert!(result.is_err());
 
-        // Move past deadline but don't mark as failed
         env.ledger().set_timestamp(deadline + 1);
 
-        // Still can't refund without marking failed
         let result = client.try_refund_contributor(&project_id, &contributor);
         assert!(result.is_err());
     }
 
-    // ---------- Pause and upgrade ----------
     #[test]
     fn test_get_is_paused_defaults_to_false() {
         let env = Env::default();
@@ -1330,10 +1473,7 @@ mod tests {
             &metadata_hash,
             &None,
         );
-        assert!(
-            result.is_err(),
-            "create_project should be blocked when paused"
-        );
+        assert!(result.is_err(), "create_project should be blocked when paused");
     }
 
     #[test]
@@ -1346,8 +1486,7 @@ mod tests {
         client.initialize(&admin);
         env.ledger().set_timestamp(1000);
         client.pause(&admin);
-        env.ledger()
-            .set_timestamp(1000 + shared::RESUME_TIME_DELAY + 1);
+        env.ledger().set_timestamp(1000 + shared::RESUME_TIME_DELAY + 1);
         let result = client.try_resume(&admin);
         assert!(result.is_ok());
         assert!(!client.get_is_paused());
@@ -1361,21 +1500,12 @@ mod tests {
         let client = ProjectLaunchClient::new(&env, &contract_id);
         let admin = Address::generate(&env);
         client.initialize(&admin);
-        
-        // Set up governance contract (mock)
+
         let governance_contract = Address::generate(&env);
         client.set_governance_contract(&admin, &governance_contract);
-        
+
         env.ledger().set_timestamp(1000);
-        let wasm_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
-        
-        // Note: This test would need a full governance mock to pass
-        // For now, we test the governance validation logic separately
-        // This is a placeholder showing the new signature
-        // In production, you'd need to:
-        // 1. Create proposal in governance contract
-        // 2. Vote and execute proposal
-        // 3. Then schedule upgrade with valid proposal_id
+        let _wasm_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
     }
 
     #[test]
@@ -1386,10 +1516,10 @@ mod tests {
         let client = ProjectLaunchClient::new(&env, &contract_id);
         let admin = Address::generate(&env);
         client.initialize(&admin);
-        
+
         let governance_contract = Address::generate(&env);
         client.set_governance_contract(&admin, &governance_contract);
-        
+
         let stored = client.get_governance_contract();
         assert!(stored.is_some());
         assert_eq!(stored.unwrap(), governance_contract);
@@ -1404,11 +1534,7 @@ mod tests {
         let admin = Address::generate(&env);
         client.initialize(&admin);
         env.ledger().set_timestamp(1000);
-        let wasm_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
-        
-        // Note: Requires governance approval first
-        // This test shows the new flow requires proposal_id
-        // Full integration test needed here
+        let _wasm_hash = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
     }
 
     #[test]
@@ -1419,9 +1545,6 @@ mod tests {
         let client = ProjectLaunchClient::new(&env, &contract_id);
         let admin = Address::generate(&env);
         client.initialize(&admin);
-        
-        // Cancel upgrade remains admin-only
-        // Would need governance-approved pending upgrade to test fully
     }
 
     #[test]
@@ -1445,16 +1568,14 @@ mod tests {
         client.set_identity_contract(&identity_contract_id);
         identity_client.initialize(&admin);
 
-        // Register token
         let token_admin = Address::generate(&env);
         let (token, _token_client, token_admin_client) = create_token_contract(&env, &token_admin);
         let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
 
-        // Create project with jurisdiction requirement
         env.ledger().set_timestamp(1000000);
         let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
         let mut jurisdictions = soroban_sdk::Vec::new(&env);
-        jurisdictions.push_back(Jurisdiction::Global); // Use global for simplicity
+        jurisdictions.push_back(Jurisdiction::Global);
 
         let project_id = client.create_project(
             &creator,
@@ -1465,16 +1586,13 @@ mod tests {
             &Some(jurisdictions),
         );
 
-        // Mint tokens
         token_admin_client.mint(&contributor_t1, &100_000000000);
         token_admin_client.mint(&contributor_t2, &200_000000000);
         token_admin_client.mint(&contributor_unverified, &100_000000000);
 
-        // 1. Unverified user should fail
         let result = client.try_contribute(&project_id, &contributor_unverified, &MIN_CONTRIBUTION);
         assert!(result.is_err());
 
-        // 2. Verify contributor_t1 as Tier 1
         let proof = Bytes::from_slice(&env, &[1, 2, 3]);
         let public_inputs = Bytes::from_slice(&env, &[0]);
         identity_client.verify_identity(
@@ -1485,14 +1603,11 @@ mod tests {
             &1,
         );
 
-        // Tier 1 contribution within limit should succeed
         client.contribute(&project_id, &contributor_t1, &KYC_TIER_1_LIMIT);
 
-        // Next contribution should exceed limit
         let result = client.try_contribute(&project_id, &contributor_t1, &1);
         assert!(result.is_err());
 
-        // 3. Verify contributor_t2 as Tier 2
         identity_client.verify_identity(
             &contributor_t2,
             &Jurisdiction::Global,
@@ -1501,7 +1616,6 @@ mod tests {
             &2,
         );
 
-        // Tier 2 should have no limit (within project goals)
         client.contribute(&project_id, &contributor_t2, &(KYC_TIER_1_LIMIT + 1));
     }
 }

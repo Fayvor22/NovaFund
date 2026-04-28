@@ -7,12 +7,20 @@ import {
   Param,
   Body,
   Query,
+  Logger,
 } from '@nestjs/common';
+import { Transaction, Networks } from '@stellar/stellar-sdk';
 import { TransactionService } from './transaction.service';
+import { SimulatorService } from './simulator.service';
 
 @Controller('transactions')
 export class TransactionHandler {
-  constructor(private readonly txService: TransactionService) {}
+  private readonly logger = new Logger(TransactionHandler.name);
+
+  constructor(
+    private readonly txService: TransactionService,
+    private readonly simulator: SimulatorService,
+  ) {}
 
   /**
    * STEP 1: Create transaction (Optimistic Response)
@@ -36,16 +44,67 @@ export class TransactionHandler {
     @Param('id') id: string,
     @Body() body: { signedXdr: string },
   ) {
-    const tx = this.txService.updateTransaction(id, {
-      status: 'SIGNED',
-      signedXdr: body.signedXdr,
-    });
-
-    if (!tx) {
+    const existingTx = this.txService.getTransaction(id);
+    if (!existingTx) {
       return { error: 'Transaction not found' };
     }
 
-    // Simulate async blockchain submission
+    this.logger.log(`Simulating transaction ${id} before submission`);
+
+    // STEP 2a: Simulate Transaction
+    const simResult = await this.simulator.simulate(body.signedXdr);
+
+    if (!simResult.success) {
+      this.logger.warn(`Transaction ${id} failed simulation: ${simResult.error}`);
+      
+      this.txService.updateTransaction(id, {
+        status: 'FAILED',
+        signedXdr: body.signedXdr,
+        error: simResult.error,
+      });
+
+      return {
+        status: 'FAILED',
+        error: simResult.error,
+        message: 'Transaction simulation failed. It has not been submitted to the network.',
+      };
+    }
+
+    // STEP 2b: Verify Fee Sufficiency
+    // We assume TESTNET as per existing patterns.
+    const parsedTx = new Transaction(body.signedXdr, Networks.TESTNET);
+    const providedFee = BigInt(parsedTx.fee);
+    const requiredFee = BigInt(simResult.minResourceFee || '0');
+
+    if (providedFee < requiredFee) {
+      const feeError = `Insufficient fee. Provided: ${providedFee}, Required: ${requiredFee}`;
+      this.logger.warn(`Transaction ${id} has insufficient fee: ${feeError}`);
+
+      this.txService.updateTransaction(id, {
+        status: 'FAILED',
+        signedXdr: body.signedXdr,
+        error: feeError,
+      });
+
+      return {
+        status: 'FAILED',
+        error: feeError,
+        requiredFee: requiredFee.toString(),
+        message: 'Transaction fee is too low according to simulation. Please re-sign with the required fee.',
+      };
+    }
+
+    // STEP 2c: Update with simulation results and submit
+    const tx = this.txService.updateTransaction(id, {
+      status: 'SIGNED',
+      signedXdr: body.signedXdr,
+      fee: simResult.minResourceFee,
+      simulationResults: simResult,
+    });
+
+    this.logger.log(`Transaction ${id} passed simulation. Fee: ${simResult.minResourceFee}. Submitting...`);
+
+    // Simulate async blockchain submission (or integrate with actual submission here)
     setTimeout(() => {
       this.txService.updateTransaction(id, {
         status: 'CONFIRMED',
@@ -54,7 +113,8 @@ export class TransactionHandler {
 
     return {
       status: 'SUBMITTED',
-      message: 'Transaction submitted to network',
+      fee: simResult.minResourceFee,
+      message: 'Transaction simulation successful and submitted to network',
     };
   }
 
@@ -102,4 +162,4 @@ export class TransactionHandler {
       }, 1000);
     });
   }
-}
+}
