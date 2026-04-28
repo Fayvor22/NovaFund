@@ -18,4 +18,6 @@ export class PoolService {
     pool.lockedCapital += amount;
     return this.repo.save(pool);
   }
+
+  
 }
