@@ -12,6 +12,7 @@ export class InsuranceService {
     private readonly pricing: PricingService,
     private readonly pools: PoolService,
     @InjectRepository(InsurancePolicy) private readonly repo: Repository<InsurancePolicy>,
+
   ) {}
 
   async purchasePolicy(userId: string, poolId: string, riskType: RiskType, coverageAmount: number) {
@@ -20,5 +21,9 @@ export class InsuranceService {
 
     const policy = this.repo.create({ userId, poolId, riskType, coverageAmount, premium });
     return this.repo.save(policy);
+  }
+
+  async Reinsurance() {
+    
   }
 }
