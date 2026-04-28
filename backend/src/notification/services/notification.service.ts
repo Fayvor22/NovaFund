@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as sgMail from '@sendgrid/mail';
 import { PrismaService } from '../../prisma.service';
+import { NotificationGateway } from '../notification.gateway';
 import twilio from 'twilio';
 import { PreferencesService } from './preferences.service';
 
@@ -15,6 +16,7 @@ export class NotificationService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly preferencesService: PreferencesService,
+    private readonly notificationGateway: NotificationGateway,
   ) {
     const sendgridKey = this.config.get<string>('SENDGRID_API_KEY');
     if (sendgridKey) sgMail.setApiKey(sendgridKey);
@@ -248,15 +250,12 @@ export class NotificationService {
     message: string,
     data?: any,
   ) {
-    await this.prisma.notification.create({
-      data: {
-        userId,
-        type: type as any,
-        title,
-        message,
-        data,
-      },
-    });
+    try {
+      // Create in database and broadcast via gateway
+      await this.notificationGateway.sendNotification(userId, type, title, message);
+    } catch (err) {
+      this.logger.error(`Failed to create in-app notification: ${err}`);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import type { Notification, NotificationPreferences } from "@/types/notifications";
 import { loadPreferences, savePreferences } from "@/lib/notification-preferences";
+import { useSocial } from "./SocialContext";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
@@ -31,16 +32,26 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 const MAX_BACKOFF_MS = 30000;
 const INITIAL_RECONNECT_MS = 1000;
 
-function getStreamUrl(): string {
+function getStreamUrl(userId?: string): string {
   if (typeof window === "undefined") return "";
   const base = window.location.origin;
-  return `${base}/api/notifications/stream`;
+  const url = new URL(`${base}/notifications/stream`);
+  if (userId) {
+    url.searchParams.append("userId", userId);
+    url.searchParams.append("limit", "50");
+  }
+  return url.toString();
 }
 
-function getHistoryUrl(): string {
+function getHistoryUrl(userId?: string, limit = 50): string {
   if (typeof window === "undefined") return "";
   const base = window.location.origin;
-  return `${base}/api/notifications/history`;
+  const url = new URL(`${base}/notifications/history`);
+  if (userId) {
+    url.searchParams.append("userId", userId);
+    url.searchParams.append("limit", limit.toString());
+  }
+  return url.toString();
 }
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
@@ -54,10 +65,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const backoffRef = useRef(INITIAL_RECONNECT_MS);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { currentWallet } = useSocial();
 
   const fetchHistory = useCallback(async () => {
-    const url = getHistoryUrl();
-    if (!url) return;
+    const url = getHistoryUrl(currentWallet);
+    if (!url || !currentWallet) return;
     try {
       const res = await fetch(url);
       if (res.ok) {
@@ -73,11 +85,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch {
       // Offline or error; keep existing state
     }
-  }, []);
+  }, [currentWallet]);
 
   const connect = useCallback(() => {
-    const url = getStreamUrl();
-    if (!url) return;
+    const url = getStreamUrl(currentWallet);
+    if (!url || !currentWallet) return;
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -119,9 +131,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         connect();
       }, backoffRef.current);
     };
-  }, []);
+  }, [currentWallet]);
 
   useEffect(() => {
+    if (!currentWallet) return;
     fetchHistory();
     connect();
     return () => {
@@ -131,17 +144,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         eventSourceRef.current = null;
       }
     };
-  }, [connect, fetchHistory]);
+  }, [connect, fetchHistory, currentWallet]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    // Also persist to backend
+    fetch(`/notifications/${id}/read`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+    }).catch(() => {
+      // ignore
+    });
   }, []);
 
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    // Also persist to backend
+    if (currentWallet) {
+      fetch(`/notifications/user/${currentWallet}/read-all`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => {
+        // ignore
+      });
+    }
+  }, [currentWallet]);
 
   const setPreferences = useCallback((prefs: NotificationPreferences) => {
     setPreferencesState(prefs);

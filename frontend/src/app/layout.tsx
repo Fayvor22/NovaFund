@@ -20,16 +20,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-black text-white min-h-screen flex flex-col">
-        <NotificationProvider>
-          <SocialProvider>
+        <SocialProvider>
+          <NotificationProvider>
             <Header />
             <LiveNotificationToast />
             <PageTransition className="flex-1 max-w-7xl mx-auto px-4 py-6 pt-16">
               {children}
             </PageTransition>
             <Footer />
-          </SocialProvider>
-        </NotificationProvider>
+          </NotificationProvider>
+        </SocialProvider>
       </body>
     </html>
   );

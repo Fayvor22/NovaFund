@@ -12,6 +12,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AccountingService } from './accounting.service';
 import { EcosystemSyncService } from './ecosystem-sync.service';
 import { StellarInsightsResolver } from './stellar-insights.resolver';
+import { TransactionService } from './transaction.service';
+import { TransactionHandler } from './transaction-handler';
+import { SimulatorService } from './simulator.service';
 import { StellarService } from './stellar.service';
 import { DynamicFeeService } from './dynamic-fee.service';
 import { ReservesService } from './reserves.service';
@@ -32,6 +35,8 @@ import { OracleModule } from '../oracle/oracle.module';
     EcosystemSyncService,
     StellarInsightsResolver,
     PrismaService,
+    TransactionService,
+    SimulatorService,
     StellarService,
     DynamicFeeService,
     ReservesService,
@@ -39,7 +44,8 @@ import { OracleModule } from '../oracle/oracle.module';
   controllers: [
     RpcFallbackController,
     FederationController,
-    AssetDiscoveryController
+    AssetDiscoveryController,
+    TransactionHandler,
   ],
   exports: [
     RpcFallbackService,
@@ -48,6 +54,8 @@ import { OracleModule } from '../oracle/oracle.module';
     AssetDiscoveryService,
     AccountingService,
     EcosystemSyncService,
+    TransactionService,
+    SimulatorService,
     StellarService,
     DynamicFeeService,
     ReservesService,

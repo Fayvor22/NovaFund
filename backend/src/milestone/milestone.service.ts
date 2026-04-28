@@ -14,10 +14,12 @@ export class MilestoneService {
    * Updates a milestone's status.
    * When transitioning to DISPUTED, automatically fans out
    * email + SMS notifications to all project investors.
+   * Also sends real-time in-app notifications.
    */
   async updateStatus(milestoneId: string, newStatus: MilestoneStatus) {
     const milestone = await this.prisma.milestone.findUnique({
       where: { id: milestoneId },
+      include: { project: true },
     });
 
     if (!milestone) {
@@ -34,7 +36,7 @@ export class MilestoneService {
       data: { status: newStatus },
     });
 
-    // ── Hook: fire notifications when entering DISPUTED ──────────────────
+    // ── Hook: fire notifications based on status transition ──────────────────
     if (newStatus === MilestoneStatus.REJECTED) {
       // Fire-and-forget: don't block the API response
       this.notificationService
@@ -42,9 +44,71 @@ export class MilestoneService {
         .catch((err) =>
           console.error(`Failed to send dispute notifications for milestone ${milestoneId}:`, err),
         );
+    } else if (newStatus === MilestoneStatus.COMPLETED) {
+      // Notify all investors that milestone was completed
+      this.notifyMilestoneCompleted(milestone)
+        .catch((err) =>
+          console.error(`Failed to send completion notifications for milestone ${milestoneId}:`, err),
+        );
+    } else if (newStatus === MilestoneStatus.APPROVED) {
+      // Notify all investors that milestone was approved
+      this.notifyMilestoneApproved(milestone)
+        .catch((err) =>
+          console.error(`Failed to send approval notifications for milestone ${milestoneId}:`, err),
+        );
     }
 
     return updated;
+  }
+
+  /**
+   * Notify investors when a milestone is completed
+   */
+  private async notifyMilestoneCompleted(milestone: any): Promise<void> {
+    const investors = await this.prisma.contribution.findMany({
+      where: { projectId: milestone.projectId },
+      distinct: ['investorId'],
+      include: {
+        investor: true,
+      },
+    });
+
+    const milestonePath = `/projects/${milestone.projectId}/milestones/${milestone.id}`;
+
+    for (const contribution of investors) {
+      await this.notificationService.notify(
+        contribution.investor.id,
+        'MILESTONE',
+        `Milestone Completed: ${milestone.title}`,
+        `The milestone "${milestone.title}" in project "${milestone.project?.name || 'your project'}" has been completed successfully.`,
+        milestonePath,
+      );
+    }
+  }
+
+  /**
+   * Notify investors when a milestone is approved
+   */
+  private async notifyMilestoneApproved(milestone: any): Promise<void> {
+    const investors = await this.prisma.contribution.findMany({
+      where: { projectId: milestone.projectId },
+      distinct: ['investorId'],
+      include: {
+        investor: true,
+      },
+    });
+
+    const milestonePath = `/projects/${milestone.projectId}/milestones/${milestone.id}`;
+
+    for (const contribution of investors) {
+      await this.notificationService.notify(
+        contribution.investor.id,
+        'MILESTONE',
+        `Milestone Approved: ${milestone.title}`,
+        `The milestone "${milestone.title}" in project "${milestone.project?.name || 'your project'}" has been approved.`,
+        milestonePath,
+      );
+    }
   }
 
   async findById(milestoneId: string) {
@@ -67,3 +131,4 @@ export class MilestoneService {
     });
   }
 }
+

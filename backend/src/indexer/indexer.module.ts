@@ -7,6 +7,8 @@ import { EventHandlerService } from './services/event-handler.service';
 import { DlqService } from './services/dlq.service';
 import { SorobanEventIndexerService } from './services/soroban-event-indexer.service';
 import { ParserService } from './services/parser.service';
+import { FundingStreamService } from './services/funding-stream.service';
+import { FundingStreamController } from './controllers/funding-stream.controller';
 import { DatabaseModule } from '../database.module';
 import { StellarModule } from '../stellar/stellar.module';
 import { EscrowAuditTask } from './tasks/escrow-audit.task';
@@ -30,6 +32,7 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     ConfigModule.forFeature(stellarConfig),
     ConfigModule.forFeature(indexerConfig),
   ],
+  controllers: [FundingStreamController],
   providers: [
     // Soroban event indexer service
     SorobanEventIndexerService,
@@ -39,6 +42,7 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     LedgerTrackerService,
     // Event processing
     EventHandlerService,
+    FundingStreamService,
     // Dead Letter Queue
     DlqService,
     // Background XDR Parsing
@@ -51,6 +55,7 @@ import stellarConfig, { indexerConfig } from '../config/stellar.config';
     IndexerService,
     LedgerTrackerService,
     EventHandlerService,
+    FundingStreamService,
     DlqService,
     SorobanEventIndexerService,
     ParserService,
