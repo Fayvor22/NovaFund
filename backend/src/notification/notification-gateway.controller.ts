@@ -1,7 +1,7 @@
 import { Controller, Get, Res, Query } from '@nestjs/common';
 import { Response } from 'express';
-import { NotificationGateway } from '../notification.gateway';
-import { PrismaService } from '../../prisma.service';
+import { NotificationGateway } from './notification.gateway';
+import { PrismaService } from '../prisma.service';
 
 @Controller('notifications')
 export class NotificationGatewayController {
@@ -26,10 +26,8 @@ export class NotificationGatewayController {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const controller = new ReadableStreamDefaultController<Uint8Array>(res);
-    const clientId = this.gateway.subscribe(controller, userId);
-
-    // Send historical notifications first
+    // TODO: Implement SSE streaming with proper controller
+    // For now, just send historical notifications and close
     if (userId) {
       const historyLimit = Math.min(100, Math.max(1, parseInt(limit ?? '50', 10)));
       const history = await this.prisma.notification.findMany({
@@ -38,25 +36,21 @@ export class NotificationGatewayController {
         take: historyLimit,
       });
 
-      const encoder = new TextEncoder();
       history.reverse().forEach((n) => {
         const data = `data: ${JSON.stringify({
           id: n.id,
           type: n.type,
           title: n.title,
           message: n.message,
-          link: n.link,
+          link: (n.data as any)?.link,
           createdAt: n.createdAt.toISOString(),
           read: n.read,
         })}\n\n`;
-        controller.enqueue(encoder.encode(data));
+        res.write(data);
       });
     }
 
-    // Keep connection alive and handle disconnection
-    res.on('close', () => {
-      this.gateway.unsubscribe(clientId);
-    });
+    res.end();
   }
 
   /**
@@ -83,7 +77,7 @@ export class NotificationGatewayController {
         type: n.type,
         title: n.title,
         message: n.message,
-        link: n.link,
+        link: (n.data as any)?.link,
         createdAt: n.createdAt.toISOString(),
         read: n.read,
       }));

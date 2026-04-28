@@ -1,15 +1,21 @@
-// src/modules/reputation/reputation.service.ts
+// src/modules/billing/billing.service.ts
 
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class ReputationService {
+export class BillingService {
   /**
-   * Returns reputation score between 0 - 100
+   * Calculate billing fees for a project
    */
-  async getReputationScore(userId: string): Promise<number> {
-    // TODO: Replace with DB or external service call
-    // Example logic
-    return 75; // mock value
+  async calculateFees(projectId: string): Promise<number> {
+    // TODO: Implement billing logic
+    return 0;
+  }
+
+  /**
+   * Process payment for a contribution
+   */
+  async processPayment(contributionId: string): Promise<void> {
+    // TODO: Implement payment processing
   }
 }

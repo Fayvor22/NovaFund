@@ -20,7 +20,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.worker = new Worker(
       'events',
       async (job: Job) => {
-        await this.prisma.event.create({ data: job.data });
+        // TODO: Implement event model in Prisma schema
+        // await this.prisma.event.create({ data: job.data });
+        console.log('Processing event:', job.data);
       },
       {
         connection,

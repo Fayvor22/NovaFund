@@ -43,10 +43,11 @@ describe('AuditExporterService', () => {
               findMany: jest.fn(),
               count: jest.fn(),
             },
-            auditLog: {
-              findMany: jest.fn(),
-              count: jest.fn(),
-            },
+            // TODO: Implement auditLog in Prisma schema
+            // auditLog: {
+            //   findMany: jest.fn(),
+            //   count: jest.fn(),
+            // },
           },
         },
         {
@@ -79,8 +80,9 @@ describe('AuditExporterService', () => {
       jest.spyOn(prismaService.project, 'count').mockResolvedValue(0);
       jest.spyOn(prismaService.contribution, 'findMany').mockResolvedValue([]);
       jest.spyOn(prismaService.contribution, 'count').mockResolvedValue(0);
-      jest.spyOn(prismaService.auditLog, 'findMany').mockResolvedValue([]);
-      jest.spyOn(prismaService.auditLog, 'count').mockResolvedValue(0);
+      // TODO: Implement auditLog in Prisma schema
+      // jest.spyOn(prismaService.auditLog, 'findMany').mockResolvedValue([]);
+      // jest.spyOn(prismaService.auditLog, 'count').mockResolvedValue(0);
 
       const options = {
         startDate: new Date('2024-01-01'),

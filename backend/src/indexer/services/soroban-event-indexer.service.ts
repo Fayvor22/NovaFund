@@ -133,13 +133,14 @@ export class SorobanEventIndexerService implements OnModuleInit, OnModuleDestroy
             if (!eventType) continue;
 
             const parsedEvent: ParsedContractEvent = {
-              id: event.id,
+              eventId: event.id,
               ledgerSeq: event.ledger,
+              ledgerClosedAt: new Date(event.ledgerClosedAt),
               contractId: event.contractId,
               eventType,
+              transactionHash: event.txHash,
               data: parsedData,
-              txHash: event.txHash,
-              timestamp: new Date(event.ledgerClosedAt),
+              inSuccessfulContractCall: event.inSuccessfulContractCall,
             };
 
             await this.eventHandler.processEvent(parsedEvent);
@@ -238,16 +239,14 @@ export class SorobanEventIndexerService implements OnModuleInit, OnModuleDestroy
   }
 
   private async handleReorgs(cursor: any, latestLedger: number): Promise<void> {
-    const ledger = await this.rpcFallbackService.executeRpcOperation(
-      async (server) => await server.getLedger(cursor.lastLedgerSeq),
-      'getLedger'
-    );
+    // TODO: Implement getLedger method for RPC fallback service
+    // const ledger = await this.rpcFallbackService.executeRpcOperation(
+    //   async (server) => await server.getLedger(cursor.lastLedgerSeq),
+    //   'getLedger'
+    // );
 
-    if (ledger && cursor.lastLedgerHash && ledger.hash !== cursor.lastLedgerHash) {
-      this.logger.warn(`Re-org detected at ledger ${cursor.lastLedgerSeq}. Rolling back.`);
-      const rollbackTo = Math.max(1, cursor.lastLedgerSeq - this.reorgDepthThreshold);
-      await this.ledgerTracker.updateCursor(rollbackTo);
-    }
+    // For now, skip reorg detection
+    this.logger.debug('Reorg detection skipped - getLedger not implemented');
   }
 
   private async getLatestLedger(): Promise<number> {

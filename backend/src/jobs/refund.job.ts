@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma.service';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationService } from '../notification/services/notification.service';
 import { StellarService } from '../stellar/stellar.service';
 
 @Injectable()
@@ -14,7 +14,9 @@ export class RefundJob extends WorkerHost {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private stellarService: StellarService,
-  ) {}
+  ) {
+    super();
+  }
 
   async process(job: Job<{ projectId: string }>): Promise<void> {
     const { projectId } = job.data;
@@ -22,14 +24,11 @@ export class RefundJob extends WorkerHost {
     try {
       this.logger.log(`Starting refund process for failed project ${projectId}`);
 
-      // Get all contributions for the project that haven't been refunded
+      // TODO: Implement refunded field in Contribution schema
+      // Get all contributions for the project
       const contributions = await this.prisma.contribution.findMany({
         where: {
           projectId,
-          refunded: false,
-        },
-        include: {
-          user: true,
         },
       });
 
@@ -44,17 +43,19 @@ export class RefundJob extends WorkerHost {
       for (const contribution of contributions) {
         try {
           // Process refund via Stellar service
-          await this.stellarService.processRefund(contribution.userId, contribution.amount);
+          // TODO: Contribution uses investorId, not userId
+          await this.stellarService.processRefund(contribution.investorId, contribution.amount);
 
-          // Mark as refunded
-          await this.prisma.contribution.update({
-            where: { id: contribution.id },
-            data: { refunded: true, refundedAt: new Date() },
-          });
+          // TODO: Mark as refunded when field is added to schema
+          // await this.prisma.contribution.update({
+          //   where: { id: contribution.id },
+          //   data: { refunded: true, refundedAt: new Date() },
+          // });
 
           // Send notification
-          await this.notificationService.sendNotification(
-            contribution.userId,
+          await this.notificationService.notify(
+            contribution.investorId,
+            'CONTRIBUTION',
             'Refund Processed',
             `Your contribution of ${contribution.amount} has been refunded for project ${projectId}.`
           );

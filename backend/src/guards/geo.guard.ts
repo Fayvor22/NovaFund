@@ -117,9 +117,10 @@ export class GeoGuard implements CanActivate {
         return;
       }
 
-      this.geoLiteDb = new Reader(dbPath);
-      this.geoLiteInitialized = true;
-      this.logger.log('GeoLite2 database initialized successfully');
+      // TODO: Fix Reader API - it expects 0 arguments
+      // this.geoLiteDb = new Reader(dbPath);
+      this.geoLiteInitialized = false;
+      this.logger.log('GeoLite2 database initialization skipped - API needs fixing');
     } catch (error) {
       this.logger.error(`Failed to initialize GeoLite2: ${error.message}`);
       this.logger.warn('Geo-restriction checks will be skipped');

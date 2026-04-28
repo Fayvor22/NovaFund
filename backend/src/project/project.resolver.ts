@@ -34,13 +34,13 @@ export class ProjectResolver {
       ];
 
       projectFields.forEach(field => {
-        if (parsedResolveInfo.fields[field]) {
+        if (parsedResolveInfo.fieldsByTypeName?.Project?.[field]) {
           fields.push(field);
         }
       });
 
       // Check for _count field (relations count)
-      if (parsedResolveInfo.fields._count) {
+      if (parsedResolveInfo.fieldsByTypeName?.Project?._count) {
         fields.push('_count');
       }
     }
@@ -69,12 +69,12 @@ export class ProjectResolver {
   @Throttle({ aggregate: { ttl: 60_000, limit: 10 } })
   @Query(() => ProjectList, { name: 'projects' })
   async getProjects(
+    @Info() info: GraphQLResolveInfo,
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,
     @Args('take', { type: () => Int, nullable: true }) take?: number,
     @Args('status', { type: () => String, nullable: true }) status?: string,
     @Args('category', { type: () => String, nullable: true }) category?: string,
     @Args('filter', { type: () => ProjectFilterInput, nullable: true }) filter?: ProjectFilterInput,
-    @Info() info: GraphQLResolveInfo,
   ): Promise<ProjectList> {
     const requiredFields = this.getRequiredFields(info);
     return this.projectService.findAll({ skip, take, status, category, filter }, requiredFields);
@@ -82,8 +82,8 @@ export class ProjectResolver {
 
   @Query(() => [Project], { name: 'activeProjects' })
   async getActiveProjects(
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
     @Info() info: GraphQLResolveInfo,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
   ): Promise<Project[]> {
     const requiredFields = this.getRequiredFields(info);
     return this.projectService.findActiveProjects(limit, requiredFields);
@@ -91,9 +91,9 @@ export class ProjectResolver {
 
   @Query(() => [Project], { name: 'projectsByCreator' })
   async getProjectsByCreator(
+    @Info() info: GraphQLResolveInfo,
     @Args('creatorId') creatorId: string,
     @Args('limit', { type: () => Int, nullable: true }) limit?: number,
-    @Info() info: GraphQLResolveInfo,
   ): Promise<Project[]> {
     const requiredFields = this.getRequiredFields(info);
     return this.projectService.findByCreator(creatorId, limit, requiredFields);
