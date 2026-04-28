@@ -72,6 +72,9 @@ model Project {
   shortlinks    Shortlink[]
   payoutTiers   ProjectPayoutTier[]
 
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
   @@map("projects")
 }
 
@@ -87,6 +90,8 @@ model Contribution {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  @@index([projectId])
+  @@index([timestamp])
   @@map("contributions")
 }
 

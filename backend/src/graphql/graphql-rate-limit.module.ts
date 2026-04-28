@@ -14,16 +14,16 @@ import { APP_GUARD } from '@nestjs/core';
       useFactory: (config: ConfigService) => ({
         throttlers: [
           {
-            // Standard queries: 60 req / min
+            // Standard queries
             name: 'default',
-            ttl: 60_000,
-            limit: 60,
+            ttl: config.get<number>('THROTTLE_TTL', 60_000),
+            limit: config.get<number>('THROTTLE_LIMIT', 60),
           },
           {
-            // Expensive aggregate queries: 10 req / min
+            // Expensive aggregate queries
             name: 'aggregate',
-            ttl: 60_000,
-            limit: 10,
+            ttl: config.get<number>('THROTTLE_TTL', 60_000),
+            limit: config.get<number>('THROTTLE_AGGREGATE_LIMIT', 10),
           },
         ],
         storage: new ThrottlerStorageRedisService(
