@@ -400,11 +400,12 @@ export class AssetDiscoveryService {
   }
 
   /**
-   * Get whitelisted asset count
+   * Get whitelisted asset list
    */
-  async getWhitelistedAssetCount(): Promise<number> {
-    return this.prisma.whitelistedAsset.count({
-      where: { isActive: true },
+  async getWhitelistedAssetList(activeOnly: boolean = true): Promise<any[]> {
+    return this.prisma.whitelistedAsset.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
+      orderBy: { whitelistedAt: 'desc' },
     });
   }
 
@@ -524,9 +525,14 @@ export class AssetDiscoveryService {
 
   private async fetchTomlInfo(homeDomain: string): Promise<any> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.config.homeDomainTimeout);
+
       const response = await fetch(`https://${homeDomain}/.well-known/stellar.toml`, {
-        timeout: this.config.homeDomainTimeout,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) return null;
 
@@ -624,9 +630,9 @@ export class AssetDiscoveryService {
           value = value.slice(1, -1);
         }
 
-        // Parse arrays
+        // Parse arrays - keep as string for basic TOML parser
         if (value.startsWith('[') && value.endsWith(']')) {
-          value = value.slice(1, -1).split(',').map(v => v.trim().replace(/"/g, ''));
+          value = value.slice(1, -1).split(',').map(v => v.trim().replace(/"/g, '')).join(', ');
         }
 
         currentSection[key] = value;

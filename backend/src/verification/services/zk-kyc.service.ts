@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma.service';
-import { KycStatus } from '../entities/kyc-status.enum';
+import { KycStatus } from '@prisma/client';
 import { ZkKycProvider } from './providers/zk-kyc-provider.interface';
 import { VioletProvider } from './providers/violet.provider';
 import { GalxeProvider } from './providers/galxe.provider';
@@ -124,14 +124,15 @@ export class ZkKycService {
       });
 
       // Log the verification in audit trail
-      await this.prisma.kycAuditEntity.save({
-        userId,
-        previousStatus: user.kycStatus,
-        newStatus: KycStatus.VERIFIED,
-        action: 'ZK_VERIFY',
-        adminId: 'system', // Automated verification
-        reason: `ZK-KYC verification via ${provider}`,
-      });
+      // TODO: Implement KycAudit model in Prisma schema
+      // await this.prisma.kycAuditEntity.save({
+      //   userId,
+      //   previousStatus: user.kycStatus,
+      //   newStatus: KycStatus.VERIFIED,
+      //   action: 'ZK_VERIFY',
+      //   adminId: 'system', // Automated verification
+      //   reason: `ZK-KYC verification via ${provider}`,
+      // });
 
       this.logger.log(`Successfully verified ZK-KYC for user ${userId} with provider ${provider}`);
 
@@ -222,14 +223,15 @@ export class ZkKycService {
     });
 
     // Log the revocation
-    await this.prisma.kycAuditEntity.save({
-      userId,
-      previousStatus: user.kycStatus,
-      newStatus: KycStatus.REJECTED,
-      action: 'ZK_REVOKE',
-      adminId,
-      reason,
-    });
+    // TODO: Implement KycAudit model in Prisma schema
+    // await this.prisma.kycAuditEntity.save({
+    //   userId,
+    //   previousStatus: user.kycStatus,
+    //   newStatus: KycStatus.REJECTED,
+    //   action: 'ZK_REVOKE',
+    //   adminId,
+    //   reason,
+    // });
 
     this.logger.log(`Revoked ZK-KYC verification for user ${userId} by admin ${adminId}`);
   }

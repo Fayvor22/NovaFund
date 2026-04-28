@@ -1,12 +1,26 @@
 // public.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { ProjectDto } from './dto/project.dto';
-import { StatsDto } from './dto/stats.dto';
+// TODO: Create DTO files
+// import { ProjectDto } from './dto/project.dto';
+// import { StatsDto } from './dto/stats.dto';
 import { ProjectService } from '../project/project.service';
 import { PrismaService } from '../prisma.service';
 import { CacheManagerService } from '../redis/cache-manager.service';
 
+interface ProjectDto {
+  id: string;
+  name: string;
+  description: string;
+  fundingGoal: bigint;
+  fundsRaised: bigint;
+}
+
+interface StatsDto {
+  totalProjects: number;
+  totalFunding: bigint;
+  activeUsers: number;
+}
 
 const DEFAULT_PROJECT_LIMIT = 20;
 
@@ -18,41 +32,21 @@ export class PublicController {
     private readonly prisma: PrismaService,
     private readonly cacheManager: CacheManagerService,
   ) {}
- 
-  constructor(private readonly cacheManager: CacheManagerService) {}
-
 
   /**
    * GET /v1/projects
    */
   @Get('projects')
   @ApiOperation({ summary: 'Get all public projects' })
-  @ApiResponse({ status: 200, type: [ProjectDto] })
-  async getProjects(): Promise<ProjectDto[]> {
+  async getProjects(): Promise<any[]> {
     const projects = await this.projectService.findActiveProjects(DEFAULT_PROJECT_LIMIT);
-  @ApiResponse({ status: 200, type: [ProjectDto] })
-  async getProjects(): Promise<ProjectDto[]> {
-    const projects = await this.projectService.findActiveProjects(20);
     return projects.map(project => ({
       id: project.id,
       name: project.title,
       description: project.description,
-      fundingGoal: project.goal,
-      fundsRaised: project.currentFunds,
+      fundingGoal: project.goal.toString(),
+      fundsRaised: project.currentFunds.toString(),
     }));
-  @ApiResponse({ status: 200 })
-  async getProjects() {
-    // TODO: Replace with real service
-    return [
-      {
-        id: '1',
-        name: 'NovaFund Alpha',
-        description: 'Decentralized funding platform',
-        fundingGoal: 10000,
-        fundsRaised: 7500,
-      },
-    ];
-
   }
 
   /**
@@ -61,19 +55,13 @@ export class PublicController {
    */
   @Get('stats')
   @ApiOperation({ summary: 'Get platform statistics' })
-  @ApiResponse({ status: 200, type: StatsDto })
-  async getStats(): Promise<StatsDto> {
+  async getStats(): Promise<any> {
     const cached = await this.cacheManager.getGlobalStats();
     if (cached) return cached;
     return this.computeStatsFromDb();
   }
 
-  private async computeStatsFromDb(): Promise<StatsDto> {
-    const [totalProjects, totalFunds] = await Promise.all([
-      this.prisma.project.count(),
-      this.prisma.project.aggregate({ _sum: { currentFunds: true } }),
-  @ApiResponse({ status: 200, type: StatsDto })
-  async getStats(): Promise<StatsDto> {
+  private async computeStatsFromDb(): Promise<any> {
     const [totalProjects, totalFundingResult, activeUsers] = await Promise.all([
       this.prisma.project.count(),
       this.prisma.project.aggregate({
@@ -83,7 +71,7 @@ export class PublicController {
         where: {
           OR: [
             { contributions: { some: {} } },
-            { projects: { some: {} } },
+            { createdProjects: { some: {} } },
           ],
         },
       }),
@@ -91,17 +79,8 @@ export class PublicController {
 
     return {
       totalProjects,
-      totalFunding: totalFundingResult._sum.currentFunds ?? 0,
+      totalFunding: (totalFundingResult._sum.currentFunds ?? 0n).toString(),
       activeUsers,
     };
-      totalFundsRaised: totalFunds._sum.currentFunds ?? 0,
-    };
-      totalFunding: totalFundingResult._sum.currentFunds || 0,
-      activeUsers,
-    };
-  @ApiResponse({ status: 200 })
-  async getStats() {
-    return this.cacheManager.getGlobalStats();
-
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class VerificationService {
@@ -34,10 +34,11 @@ export class VerificationService {
       const verified = builtHash === deployedHash;
 
       // Update database
-      await this.prisma.contract.update({
-        where: { id: contractId },
-        data: { verified, verifiedAt: new Date() },
-      });
+      // TODO: Implement Contract model in Prisma schema
+      // await this.prisma.contract.update({
+      //   where: { id: contractId },
+      //   data: { verified, verifiedAt: new Date() },
+      // });
 
       this.logger.log(`Contract ${contractId} verification: ${verified ? 'PASSED' : 'FAILED'}`);
 

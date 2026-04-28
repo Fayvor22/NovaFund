@@ -12,7 +12,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AssetDiscoveryService } from '../asset-discovery.service';
+import { AssetDiscoveryService } from './asset-discovery.service';
 import {
   ManualScanDto,
   GetPendingAssetsDto,
@@ -24,7 +24,7 @@ import {
   WhitelistedAssetResponseDto,
   ManualScanResponseDto,
 } from './dto/asset-discovery.dto';
-import { AdminGuard } from '../../guards/admin.guard';
+import { AdminGuard } from '../guards/admin.guard';
 
 @Controller('stellar/assets')
 @UseGuards(AdminGuard)
@@ -44,7 +44,7 @@ export class AssetDiscoveryController {
     ] = await Promise.all([
       this.assetDiscoveryService.getDiscoveredAssetCount(),
       this.assetDiscoveryService.getPendingAssetCount(),
-      this.assetDiscoveryService.getWhitelistedAssetCount(),
+      this.assetDiscoveryService.getWhitelistedAssetList(true).then(assets => assets.length),
       this.assetDiscoveryService.getRejectedAssetCount(),
     ]);
 
@@ -65,7 +65,7 @@ export class AssetDiscoveryController {
   @Throttle({ default: { ttl: 3600_000, limit: 3 } }) // 3 manual scans per hour max
   @HttpCode(HttpStatus.OK)
   async manualScan(@Body() dto: ManualScanDto): Promise<ManualScanResponseDto> {
-    const result = await this.assetDiscoveryService.manualAssetScan(dto.maxAssets);
+    const result = await this.assetDiscoveryService.manualAssetScan();
 
     return {
       ...result,
@@ -78,7 +78,7 @@ export class AssetDiscoveryController {
    */
   @Get('pending')
   async getPendingAssets(@Query() query: GetPendingAssetsDto): Promise<DiscoveredAssetResponseDto[]> {
-    const assets = await this.assetDiscoveryService.getPendingAssets(query.limit, query.offset);
+    const assets = await this.assetDiscoveryService.getPendingAssets(query.limit);
 
     return assets.map(asset => ({
       id: asset.id,
@@ -167,9 +167,9 @@ export class AssetDiscoveryController {
    * Get all whitelisted assets
    */
   @Get('whitelisted')
-  async getWhitelistedAssets(@Query('activeOnly') activeOnly?: string): Promise<WhitelistedAssetResponseDto[]> {
+  async getWhitelistedAssetList(@Query('activeOnly') activeOnly?: string): Promise<WhitelistedAssetResponseDto[]> {
     const active = activeOnly !== 'false';
-    const assets = await this.assetDiscoveryService.getWhitelistedAssets(active);
+    const assets = await this.assetDiscoveryService.getWhitelistedAssetList(active);
 
     return assets.map(asset => ({
       id: asset.id,

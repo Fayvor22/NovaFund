@@ -35,6 +35,7 @@ describe('ProjectService', () => {
     status: mockProjectDb.status as any,
     createdAt: mockProjectDb.createdAt.toISOString() as any,
     updatedAt: mockProjectDb.updatedAt.toISOString() as any,
+    tags: ['test-tag'],
   };
 
   beforeEach(async () => {

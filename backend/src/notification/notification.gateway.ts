@@ -82,10 +82,10 @@ export class NotificationGateway {
       const notification = await this.prisma.notification.create({
         data: {
           userId,
-          type,
+          type: type as any,
           title,
           message,
-          link,
+          data: link ? { link } : {},
           read: false,
         },
       });
@@ -97,7 +97,7 @@ export class NotificationGateway {
           type: notification.type,
           title: notification.title,
           message: notification.message,
-          link: notification.link,
+          link: (notification.data as any)?.link,
           createdAt: notification.createdAt.toISOString(),
           read: notification.read,
         },

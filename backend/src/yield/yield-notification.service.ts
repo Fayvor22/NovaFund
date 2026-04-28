@@ -44,7 +44,7 @@ export class YieldNotificationService {
         await this.notificationService.notify(
           contribution.investor.id,
           'CONTRIBUTION',
-          `Yield Generated on "${project.name}"`,
+          `Yield Generated on "${project.title}"`,
           `Your investment has generated ${yieldPercentage}% yield. Total yield generated: $${yieldAmount.toFixed(2)}`,
           `/projects/${projectId}`,
         );
@@ -86,7 +86,7 @@ export class YieldNotificationService {
         await this.notificationService.notify(
           contribution.investor.id,
           'CONTRIBUTION',
-          `Yield Distribution Available on "${project.name}"`,
+          `Yield Distribution Available on "${project.title}"`,
           `A new yield distribution of $${distributionAmount.toFixed(2)} is now available for withdrawal`,
           `/projects/${projectId}`,
         );
@@ -133,7 +133,7 @@ export class YieldNotificationService {
         await this.notificationService.notify(
           contribution.investor.id,
           'CONTRIBUTION',
-          `APY Update on "${project.name}"`,
+          `APY Update on "${project.title}"`,
           `Your project's annual percentage yield has ${trend} from ${oldAPY.toFixed(2)}% to ${newAPY.toFixed(2)}% (${difference}% change)`,
           `/projects/${projectId}`,
         );
@@ -177,15 +177,15 @@ export class YieldNotificationService {
 
       switch (milestoneType) {
         case 'total_yield':
-          title = `🎉 Total Yield Milestone Reached on "${project.name}"`;
+          title = `🎉 Total Yield Milestone Reached on "${project.title}"`;
           message = `Your project has generated a total of $${achievedValue.toFixed(2)} in yield! Target was $${milestoneValue.toFixed(2)}.`;
           break;
         case 'monthly_yield':
-          title = `📊 Monthly Yield Goal Achieved on "${project.name}"`;
+          title = `📊 Monthly Yield Goal Achieved on "${project.title}"`;
           message = `This month's yield of $${achievedValue.toFixed(2)} has exceeded the target of $${milestoneValue.toFixed(2)}!`;
           break;
         case 'apy_target':
-          title = `⭐ APY Target Reached on "${project.name}"`;
+          title = `⭐ APY Target Reached on "${project.title}"`;
           message = `Your project's APY has reached ${achievedValue.toFixed(2)}%, surpassing the target of ${milestoneValue.toFixed(2)}%!`;
           break;
       }

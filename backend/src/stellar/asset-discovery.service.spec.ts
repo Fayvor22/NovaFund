@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AssetDiscoveryService } from './asset-discovery.service';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma.service';
+import { PrismaService } from '../prisma.service';
 import { RpcFallbackService } from './rpc-fallback.service';
 
 describe('AssetDiscoveryService', () => {
@@ -101,18 +101,25 @@ describe('AssetDiscoveryService', () => {
         id: 'asset-123',
         assetCode: 'USDC',
         assetIssuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-        assetType: 'CREDIT_ALPHANUM4',
+        assetType: 'CREDIT_ALPHANUM4' as any,
         homeDomain: 'centre.io',
         tomlInfo: {},
         tags: ['Stable'],
-        liquidityScore: 9.5,
+        liquidityScore: { toNumber: () => 9.5 } as any,
         volume24h: BigInt(100000000000),
         holdersCount: 10000,
         trustlinesCount: 10000,
-        status: 'DISCOVERED',
+        status: 'DISCOVERED' as any,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastActivity: new Date(),
+        proposedBy: 'system',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null,
       };
 
-      jest.spyOn(prismaService.discoveredAsset, 'findUnique').mockResolvedValue(mockAsset);
+      jest.spyOn(prismaService.discoveredAsset, 'findUnique').mockResolvedValue(mockAsset as any);
       jest.spyOn(prismaService.whitelistedAsset, 'create').mockResolvedValue({} as any);
       jest.spyOn(prismaService.discoveredAsset, 'update').mockResolvedValue({} as any);
 
@@ -131,10 +138,27 @@ describe('AssetDiscoveryService', () => {
     it('should reject an asset', async () => {
       const mockAsset = {
         id: 'asset-123',
-        status: 'DISCOVERED',
+        status: 'DISCOVERED' as any,
+        assetCode: 'USDC',
+        assetIssuer: 'G...',
+        assetType: 'CREDIT_ALPHANUM4' as any,
+        homeDomain: 'centre.io',
+        tomlInfo: {},
+        tags: ['Stable'],
+        liquidityScore: { toDecimal: () => '9.5' } as any,
+        volume24h: BigInt(100000000000),
+        holdersCount: 10000,
+        trustlinesCount: 10000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastActivity: new Date(),
+        proposedBy: 'system',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null,
       };
 
-      jest.spyOn(prismaService.discoveredAsset, 'findUnique').mockResolvedValue(mockAsset);
+      jest.spyOn(prismaService.discoveredAsset, 'findUnique').mockResolvedValue(mockAsset as any);
       jest.spyOn(prismaService.discoveredAsset, 'update').mockResolvedValue({} as any);
 
       await expect(service.rejectAsset('asset-123', 'admin-456', 'Insufficient liquidity'))
@@ -142,19 +166,34 @@ describe('AssetDiscoveryService', () => {
     });
   });
 
-  describe('getWhitelistedAssets', () => {
+  describe('getWhitelistedAssetList', () => {
     it('should return whitelisted assets', async () => {
       const mockAssets = [
         {
           id: 'whitelist-123',
           assetCode: 'USDC',
+          assetIssuer: 'G...',
+          assetType: 'CREDIT_ALPHANUM4' as any,
+          homeDomain: 'centre.io',
+          tomlInfo: {},
+          tags: ['Stable'],
+          category: 'STABLECOIN' as any,
+          riskLevel: 'LOW' as any,
           isActive: true,
+          maxInvestment: BigInt(1000000),
+          minInvestment: BigInt(100),
+          whitelistedBy: 'admin-456',
+          whitelistedAt: new Date(),
+          lastReviewedAt: new Date(),
+          reviewNotes: 'Approved',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
       jest.spyOn(prismaService.whitelistedAsset, 'findMany').mockResolvedValue(mockAssets);
 
-      const result = await service.getWhitelistedAssets(true);
+      const result = await service.getWhitelistedAssetList(true);
 
       expect(result).toEqual(mockAssets);
     });

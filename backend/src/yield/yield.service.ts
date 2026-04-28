@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { YieldStats } from './dto/yield-stats.dto';
+import { WaterfallRecipientType } from './dto/waterfall.dto';
 import {
   WaterfallEngineService,
-  WaterfallRecipient,
   WaterfallTierRule,
 } from './waterfall-engine.service';
 
 export interface UpsertWaterfallTierInput {
   tierOrder: number;
-  recipientType: WaterfallRecipient;
+  recipientType: WaterfallRecipientType;
   maxAmount: string | null;
 }
 
@@ -85,7 +85,7 @@ export class YieldService {
     return {
       payoutAmount,
       allocations: Object.entries(result.allocations).map(([recipientType, amount]) => ({
-        recipientType: recipientType as WaterfallRecipient,
+        recipientType: recipientType as WaterfallRecipientType,
         amount: amount.toString(),
       })),
       unallocatedAmount: result.unallocatedAmount.toString(),

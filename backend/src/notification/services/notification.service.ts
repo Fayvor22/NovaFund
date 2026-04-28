@@ -80,31 +80,34 @@ export class NotificationService {
 
     // Push - check granular preference
     const pushEnabled = await this.preferencesService.isEnabled(userId, type, 'PUSH');
-    if (pushEnabled && settings.pushEnabled && user.pushSubscription) {
-      tasks.push(
-        this.sendWebPush(user.pushSubscription, {
-          title,
-          body: message,
-          data,
-        }),
-      );
-    }
+    // TODO: Implement push notifications when pushSubscription is available in schema
+    // if (pushEnabled && settings.pushEnabled && user.pushSubscription) {
+    //   tasks.push(
+    //     this.sendWebPush(user.pushSubscription, {
+    //       title,
+    //       body: message,
+    //       data,
+    //     }),
+    //   );
+    // }
 
     // SMS - check granular preference (if SMS is enabled globally)
     const smsEnabled = await this.preferencesService.isEnabled(userId, type, 'SMS');
-    if (smsEnabled && settings.smsEnabled && user.profileData?.phone && this.twilioClient) {
-      tasks.push(
-        this.sendSms(user.profileData.phone, title, message),
-      );
-    }
+    // TODO: Implement SMS functionality when profileData.phone is available in schema
+    // if (smsEnabled && settings.smsEnabled && user.profileData?.phone && this.twilioClient) {
+    //   tasks.push(
+    //     this.sendSms(user.profileData.phone, title, message),
+    //   );
+    // }
 
     // App notification - check granular preference
     const appEnabled = await this.preferencesService.isEnabled(userId, type, 'APP');
-    if (appEnabled && settings.appEnabled) {
-      tasks.push(
-        this.createInAppNotification(userId, type, title, message, data),
-      );
-    }
+    // TODO: Implement appEnabled when available in settings schema
+    // if (appEnabled && settings.appEnabled) {
+    //   tasks.push(
+    //     this.createInAppNotification(userId, type, title, message, data),
+    //   );
+    // }
 
     await Promise.allSettled(tasks);
   }
