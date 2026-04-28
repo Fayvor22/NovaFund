@@ -142,9 +142,8 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-foreground overflow-hidden">
-      {/* Subtle background glows */}
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-primary/20 opacity-40 blur-[120px]" />
-      <div className="pointer-events-none absolute right-0 top-1/4 h-[400px] w-[400px] -translate-y-1/2 rounded-[100%] bg-purple-600/10 opacity-30 blur-[100px]" />
+      {/* Premium glassmorphism radial gradient background */}
+      <div className="dashboard-gradient-bg" />
 
       {/* Toast Notification */}
       {showToast && (
@@ -192,7 +191,7 @@ export default function DashboardPage() {
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12 mb-20">
               {/* Investment Table */}
-              <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/60 p-6 sm:p-8 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-white/10 backdrop-blur-xl bg-white/[0.03] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                 <div className="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 <InvestmentTable
                   investments={portfolioData.investments}
@@ -201,7 +200,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Portfolio Chart */}
-              <div className="lg:col-span-1 relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/60 p-6 sm:p-8 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <div className="lg:col-span-1 relative overflow-hidden rounded-3xl border border-white/10 backdrop-blur-xl bg-white/[0.03] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                 <div className="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 <PortfolioChart investments={portfolioData.investments} />
               </div>

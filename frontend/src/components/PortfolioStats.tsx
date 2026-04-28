@@ -21,38 +21,34 @@ const PortfolioStats: React.FC<PortfolioStatsProps> = ({ data }) => {
   const stats = [
     {
       title: "Total Invested",
-      value: `$${data.totalInvested.toLocaleString()}`,
+      value: `${data.totalInvested.toLocaleString()}`,
       description: "Across all projects",
       color: "text-blue-400",
-      bgColor: "bg-blue-900/20",
     },
     {
       title: "Current Value",
-      value: `$${data.totalCurrentValue.toLocaleString()}`,
+      value: `${data.totalCurrentValue.toLocaleString()}`,
       description: `${totalGainsPercentage}% ${totalGains >= 0 ? "gain" : "loss"}`,
       color: totalGains >= 0 ? "text-green-400" : "text-red-400",
-      bgColor: totalGains >= 0 ? "bg-green-900/20" : "bg-red-900/20",
     },
     {
       title: "Claimable Returns",
-      value: `$${data.totalClaimableReturns.toLocaleString()}`,
+      value: `${data.totalClaimableReturns.toLocaleString()}`,
       description: "Ready to claim",
       color: "text-purple-400",
-      bgColor: "bg-purple-900/20",
     },
     {
       title: "Active Projects",
       value: data.totalProjects.toString(),
       description: "In portfolio",
       color: "text-orange-400",
-      bgColor: "bg-orange-900/20",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((stat, index) => (
-        <div key={index} className={`relative overflow-hidden rounded-2xl p-6 ${stat.bgColor} border border-white/10 backdrop-blur-xl shadow-lg`}>
+        <div key={index} className="relative overflow-hidden rounded-2xl p-6 backdrop-blur-xl bg-white/[0.03] border border-white/10 shadow-lg">
           <div className="absolute inset-x-0 -top-px h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <div className="flex items-center justify-between relative z-10">
             <div>
@@ -63,7 +59,7 @@ const PortfolioStats: React.FC<PortfolioStatsProps> = ({ data }) => {
               </p>
             </div>
             <div
-              className={`w-12 h-12 rounded-full ${stat.bgColor} flex items-center justify-center`}
+              className="w-12 h-12 rounded-full backdrop-blur-xl bg-white/[0.03] border border-white/10 flex items-center justify-center"
             >
               {index === 0 && (
                 <svg
