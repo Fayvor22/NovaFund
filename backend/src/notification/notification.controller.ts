@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { PreferencesService } from './services/preferences.service';
+import { NotificationGateway } from './notification.gateway';
 
 @Controller('notifications')
 export class NotificationController {
     constructor(
         private readonly prisma: PrismaService,
         private readonly preferencesService: PreferencesService,
+        private readonly gateway: NotificationGateway,
     ) { }
 
     @Get('settings/:userId')
@@ -73,4 +75,68 @@ export class NotificationController {
         });
         return { success: true };
     }
+
+    /**
+     * Mark a notification as read
+     * PATCH /notifications/:notificationId/read
+     */
+    @Put(':notificationId/read')
+    async markAsRead(@Param('notificationId') notificationId: string) {
+        const notification = await this.prisma.notification.update({
+            where: { id: notificationId },
+            data: { read: true },
+        });
+        return notification;
+    }
+
+    /**
+     * Mark all notifications as read for a user
+     * PUT /notifications/user/:userId/read-all
+     */
+    @Put('user/:userId/read-all')
+    async markAllAsRead(@Param('userId') userId: string) {
+        const result = await this.prisma.notification.updateMany({
+            where: { userId, read: false },
+            data: { read: true },
+        });
+        return { updated: result.count };
+    }
+
+    /**
+     * Get unread count for a user
+     * GET /notifications/user/:userId/unread-count
+     */
+    @Get('user/:userId/unread-count')
+    async getUnreadCount(@Param('userId') userId: string) {
+        const count = await this.prisma.notification.count({
+            where: { userId, read: false },
+        });
+        return { unreadCount: count };
+    }
+
+    /**
+     * Emit a notification (for testing/internal use)
+     * POST /notifications/emit
+     */
+    @Post('emit')
+    async emitNotification(
+        @Body() body: {
+            userId: string;
+            type: string;
+            title: string;
+            message: string;
+            link?: string;
+        },
+    ) {
+        const { userId, type, title, message, link } = body;
+        const notification = await this.gateway.sendNotification(
+            userId,
+            type,
+            title,
+            message,
+            link,
+        );
+        return notification;
+    }
 }
+
